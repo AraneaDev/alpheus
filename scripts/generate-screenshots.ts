@@ -8,11 +8,10 @@
  *   bun run scripts/generate-screenshots.ts
  *   bun run scripts/generate-screenshots.ts "<command>" <out.svg> < input.txt
  */
+process.env.FORCE_COLOR = '3'
+
 import { mkdirSync, writeFileSync } from 'fs'
 import { dirname } from 'path'
-import React from 'react'
-import { render } from 'ink-testing-library'
-import { App } from '../src/tui/app.tsx'
 import type { MiasmaItem, PurgeSummary } from '../src/scanner/types.ts'
 
 const CELL_W = 8.5
@@ -108,6 +107,9 @@ function parseAnsi(line: string): TextSpan[] {
         style.bold = true
       } else if (c === 2) {
         style.dim = true
+      } else if (c === 22) {
+        style.bold = false
+        style.dim = false
       } else if (c >= 30 && c <= 37) {
         style.fg = BASE_COLORS[c - 30] || BODY
       } else if (c >= 90 && c <= 97) {
@@ -316,6 +318,10 @@ async function main() {
       confidence: 1,
     },
   ]
+
+  const { render } = await import('ink-testing-library')
+  const React = (await import('react')).default
+  const { App } = await import('../src/tui/app.tsx')
 
   const { lastFrame } = render(
     React.createElement(App, {
