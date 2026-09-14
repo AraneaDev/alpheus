@@ -6,6 +6,7 @@ import { listBackups } from './safety/backup.ts'
 import { purgeMiasma } from './safety/mutator.ts'
 import { restoreBackup } from './safety/restore.ts'
 import { runTui } from './tui/app.tsx'
+import { DEMO_ITEMS } from './tui/demo.ts'
 
 function printHelp(): void {
   console.log(`
@@ -17,6 +18,7 @@ Usage:
   alpheus clean --all [flags]  Batch purge all detected miasma with automatic backup
   alpheus restore [id]         Restore working tree from backup snapshot (default: latest)
   alpheus backups              List existing backup snapshots
+  alpheus demo                 Launch interactive TUI with simulated findings
   alpheus help                 Show this help message
 
 Flags:
@@ -126,10 +128,21 @@ export async function main(
     }
   }
 
+  if (command === 'demo' || args.includes('--demo')) {
+    if (!process.stdin.isTTY) {
+      console.log(formatTable(DEMO_ITEMS))
+      return 0
+    }
+    return await runTui(cwd, undefined, DEMO_ITEMS)
+  }
+
   // Default: Launch TUI if in interactive terminal, otherwise fallback to check
   if (!process.stdin.isTTY) {
     const items = await evaluateWorkingTree(cwd)
     console.log(formatTable(items))
+    if (items.length === 0) {
+      console.log('Tip: Run `alpheus demo` to explore the interactive TUI with simulated findings.')
+    }
     return items.length === 0 ? 0 : 1
   }
 

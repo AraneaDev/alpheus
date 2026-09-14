@@ -40,6 +40,17 @@ describe('CLI Commands Dispatching', () => {
     expect(code).toBe(0)
   })
 
+  it('should handle demo command in non-TTY mode and return 0', async () => {
+    const originalIsTTY = process.stdin.isTTY
+    try {
+      Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true })
+      const code = await main(['demo'])
+      expect(code).toBe(0)
+    } finally {
+      Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true })
+    }
+  })
+
   it('should handle default no-arg invocation in non-TTY mode and return 1 when miasma is present', async () => {
     writeFileSync(join(tmpDir, 'file.ts'), 'export const x = 1\nconsole.log("miasma");\n')
     const originalIsTTY = process.stdin.isTTY

@@ -130,21 +130,43 @@ export const App: React.FC<AppProps> = ({ items, cwd, onPurge, onDone }) => {
  *
  * @param cwd - Repository root directory.
  * @param renderFn - Optional Ink render function (defaults to ink render).
+ * @param initialItems - Optional pre-loaded findings (used in demo mode).
  * @returns Exit code promise.
  */
 export async function runTui(
   cwd: string,
   renderFn: typeof render = render,
+  initialItems?: MiasmaItem[],
 ): Promise<number> {
-  const items = await evaluateWorkingTree(cwd)
+  const items = initialItems ?? (await evaluateWorkingTree(cwd))
 
   if (items.length === 0) {
     console.log('✨ Working tree clean. No agent miasma detected.')
+    console.log('Tip: Run `alpheus demo` to explore the interactive TUI with simulated findings.')
     return 0
   }
 
   return new Promise((resolve) => {
-    const handlePurge = async (chosen: MiasmaItem[]) => {
+    const handlePurge = async (chosen: MiasmaItem[]): Promise<PurgeSummary> => {
+      if (initialItems) {
+        const modifiedFiles: { path: string; purgedLineCount: number }[] = []
+        for (const item of chosen) {
+          if (item.category !== 'SCRATCH') {
+            const existing = modifiedFiles.find((m) => m.path === item.filePath)
+            if (existing) {
+              existing.purgedLineCount++
+            } else {
+              modifiedFiles.push({ path: item.filePath, purgedLineCount: 1 })
+            }
+          }
+        }
+        return {
+          backupId: 'demo_snapshot',
+          backupPath: '.alpheus/backups/demo_snapshot',
+          modifiedFiles,
+          unlinkedFiles: chosen.filter((i) => i.category === 'SCRATCH').map((i) => i.filePath),
+        }
+      }
       return await purgeMiasma(cwd, chosen)
     }
 

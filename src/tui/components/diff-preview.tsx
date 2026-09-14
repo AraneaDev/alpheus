@@ -23,23 +23,19 @@ export const DiffPreview: React.FC<DiffPreviewProps> = ({ item, cwd }) => {
 
   const absPath = join(cwd, item.filePath)
 
-  if (!existsSync(absPath)) {
-    return (
-      <Box borderStyle="single" borderColor="gray" paddingX={1} height={10}>
-        <Text dimColor>File does not exist on disk: {item.filePath}</Text>
-      </Box>
-    )
-  }
-
   // Handle scratch files
   if (item.category === 'SCRATCH') {
     let preview: string
-    try {
-      const content = readFileSync(absPath, 'utf-8')
-      const lines = content.split('\n').slice(0, 6)
-      preview = lines.join('\n')
-    } catch {
-      preview = '(binary or unreadable file)'
+    if (existsSync(absPath)) {
+      try {
+        const content = readFileSync(absPath, 'utf-8')
+        const lines = content.split('\n').slice(0, 6)
+        preview = lines.join('\n')
+      } catch {
+        preview = '(binary or unreadable file)'
+      }
+    } else {
+      preview = '(untracked scratch file preview)'
     }
 
     return (
@@ -59,22 +55,36 @@ export const DiffPreview: React.FC<DiffPreviewProps> = ({ item, cwd }) => {
   // Handle line-level findings
   let snippet: { lineNum: number; content: string; isTarget: boolean }[] = []
 
-  try {
-    const raw = readFileSync(absPath, 'utf-8')
-    const allLines = raw.split(/\r?\n/)
-    const targetLine = item.lineNumber || 1
-    const start = Math.max(1, targetLine - 3)
-    const end = Math.min(allLines.length, targetLine + 3)
+  if (item.contextLines && item.contextLines.length > 0) {
+    snippet = item.contextLines.map((c) => ({
+      lineNum: c.line,
+      content: c.content,
+      isTarget: c.isTarget,
+    }))
+  } else if (existsSync(absPath)) {
+    try {
+      const raw = readFileSync(absPath, 'utf-8')
+      const allLines = raw.split(/\r?\n/)
+      const targetLine = item.lineNumber || 1
+      const start = Math.max(1, targetLine - 3)
+      const end = Math.min(allLines.length, targetLine + 3)
 
-    for (let i = start; i <= end; i++) {
-      snippet.push({
-        lineNum: i,
-        content: allLines[i - 1] || '',
-        isTarget: i === targetLine,
-      })
+      for (let i = start; i <= end; i++) {
+        snippet.push({
+          lineNum: i,
+          content: allLines[i - 1] || '',
+          isTarget: i === targetLine,
+        })
+      }
+    } catch {
+      snippet = []
     }
-  } catch {
-    snippet = []
+  } else {
+    return (
+      <Box borderStyle="single" borderColor="gray" paddingX={1} height={10}>
+        <Text dimColor>File does not exist on disk: {item.filePath}</Text>
+      </Box>
+    )
   }
 
   return (

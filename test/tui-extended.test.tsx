@@ -174,4 +174,29 @@ describe('App TUI Extended Interactions', () => {
       rmSync(tmpDirty, { recursive: true, force: true })
     }
   })
+
+  it('should run runTui with initialItems in demo mode and handle simulated purge', async () => {
+    const { runTui } = await import('../src/tui/app.tsx')
+    const { DEMO_ITEMS } = await import('../src/tui/demo.ts')
+    let purgeCalled = false
+    const mockRender = (node: React.ReactNode) => {
+      const element = node as React.ReactElement<{
+        items: MiasmaItem[]
+        onPurge?: (items: MiasmaItem[]) => Promise<PurgeSummary>
+        onDone: (code: number) => void
+      }>
+      if (element.props.onPurge) {
+        element.props.onPurge(element.props.items).then((res) => {
+          expect(res.backupPath).toContain('demo')
+        })
+      }
+      purgeCalled = true
+      element.props.onDone(0)
+      return { unmount: () => {}, rerender: () => {}, cleanup: () => {}, waitUntilExit: async () => {}, clear: () => {} }
+    }
+
+    const code = await runTui('/tmp', mockRender as unknown as typeof import('ink').render, DEMO_ITEMS)
+    expect(code).toBe(0)
+    expect(purgeCalled).toBe(true)
+  })
 })

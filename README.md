@@ -89,6 +89,7 @@ alpheus check [flags]        Non-interactive scan; exit 1 if miasma found (for C
 alpheus clean --all [flags]  Batch purge all detected miasma with automatic backup
 alpheus restore [id]         Restore working tree from backup snapshot (default: latest)
 alpheus backups              List existing backup snapshots
+alpheus demo                 Launch interactive TUI with simulated findings (demo mode)
 alpheus help                 Show CLI usage and flag reference
 ```
 

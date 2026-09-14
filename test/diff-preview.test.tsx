@@ -99,4 +99,42 @@ describe('DiffPreview Component', () => {
     expect(frame).toContain('console.log("disk");')
     expect(frame).toContain('line 1')
   })
+
+  it('should render scratch preview fallback when scratch file does not exist on disk', () => {
+    const item: MiasmaItem = {
+      id: 'scratch-missing',
+      filePath: 'untracked-ghost.tmp',
+      category: 'SCRATCH',
+      matchedContent: 'untracked-ghost.tmp',
+      explanation: 'Scratch file',
+      confidence: 1.0,
+    }
+
+    const { lastFrame } = render(<DiffPreview item={item} cwd={tmpDir} />)
+    const frame = lastFrame() || ''
+    expect(frame).toContain('Scratch File: untracked-ghost.tmp')
+    expect(frame).toContain('(untracked scratch file preview)')
+  })
+
+  it('should render context lines when provided directly on item without file on disk', () => {
+    const item: MiasmaItem = {
+      id: 'context-direct',
+      filePath: 'nonexistent-source.ts',
+      lineNumber: 10,
+      category: 'LOG',
+      matchedContent: 'console.log("demo")',
+      explanation: 'Direct context',
+      confidence: 1.0,
+      contextLines: [
+        { line: 9, content: 'const a = 1;', isTarget: false },
+        { line: 10, content: 'console.log("demo");', isTarget: true },
+        { line: 11, content: 'const b = 2;', isTarget: false },
+      ],
+    }
+
+    const { lastFrame } = render(<DiffPreview item={item} cwd={tmpDir} />)
+    const frame = lastFrame() || ''
+    expect(frame).toContain('Context: nonexistent-source.ts:10')
+    expect(frame).toContain('console.log("demo");')
+  })
 })
