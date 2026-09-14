@@ -7,6 +7,9 @@ import { DiffPreview } from './components/diff-preview.tsx'
 import { FindingList } from './components/finding-list.tsx'
 import { StatusBar } from './components/status-bar.tsx'
 
+/**
+ * Props for the interactive Alpheus Ink TUI application.
+ */
 export interface AppProps {
   items: MiasmaItem[]
   cwd: string
@@ -14,6 +17,9 @@ export interface AppProps {
   onDone: (exitCode: number) => void
 }
 
+/**
+ * Main interactive Ink TUI application component for reviewing and purging miasma.
+ */
 export const App: React.FC<AppProps> = ({ items, cwd, onPurge, onDone }) => {
   const { exit } = useApp()
   const [cursorIndex, setCursorIndex] = useState(0)
@@ -123,9 +129,13 @@ export const App: React.FC<AppProps> = ({ items, cwd, onPurge, onDone }) => {
  * Runs the interactive TUI application.
  *
  * @param cwd - Repository root directory.
+ * @param renderFn - Optional Ink render function (defaults to ink render).
  * @returns Exit code promise.
  */
-export async function runTui(cwd: string): Promise<number> {
+export async function runTui(
+  cwd: string,
+  renderFn: typeof render = render,
+): Promise<number> {
   const items = await evaluateWorkingTree(cwd)
 
   if (items.length === 0) {
@@ -138,7 +148,7 @@ export async function runTui(cwd: string): Promise<number> {
       return await purgeMiasma(cwd, chosen)
     }
 
-    render(
+    renderFn(
       <App
         items={items}
         cwd={cwd}

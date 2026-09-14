@@ -64,6 +64,7 @@ Alpheus inspects only **newly added lines** in uncommitted working tree diffs an
 ## Quick Start
 
 ### 1. Interactive TUI
+
 Run Alpheus without arguments in your repository terminal:
 
 ```bash
@@ -77,6 +78,7 @@ alpheus
 * `<q>` / `<Esc>`: Cancel and exit without modifying files
 
 ### 2. Pre-Commit / CI Check
+
 To run as a non-interactive gate that exits with code `1` if miasma is detected:
 
 ```bash
@@ -91,6 +93,7 @@ alpheus check --quiet || (echo "Alpheus: Agent miasma found. Run 'alpheus' to cl
 ```
 
 ### 3. Batch Cleanup
+
 To purge all detected items without opening the TUI:
 
 ```bash
@@ -100,6 +103,7 @@ alpheus clean --all
 Supports `--dry-run` to preview actions without touching files.
 
 ### 4. Safety & Rollback
+
 Alpheus takes an atomic snapshot in `.alpheus/backups/` before any line deletion or file removal. To revert:
 
 ```bash

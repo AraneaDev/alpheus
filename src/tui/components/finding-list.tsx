@@ -9,6 +9,9 @@ interface FindingListProps {
   selectedIds: Set<string>
 }
 
+/**
+ * Interactive list displaying detected miasma items with cursor and selection status.
+ */
 export const FindingList: React.FC<FindingListProps> = ({
   items,
   cursorIndex,

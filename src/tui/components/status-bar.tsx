@@ -6,6 +6,9 @@ interface StatusBarProps {
   totalCount: number
 }
 
+/**
+ * Footer status bar displaying keybindings and selection counts.
+ */
 export const StatusBar: React.FC<StatusBarProps> = ({ selectedCount, totalCount }) => {
   return (
     <Box

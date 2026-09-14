@@ -9,32 +9,38 @@ describe('Miasma Rule: [SUPPRESS]', () => {
     expect(matchSuppressMiasma('// @ts-ignore', 'typescript')).not.toBeNull()
     expect(matchSuppressMiasma('// @ts-expect-error', 'typescript')).not.toBeNull()
     expect(matchSuppressMiasma('// biome-ignore lint/suspicious', 'typescript')).not.toBeNull()
+    expect(matchSuppressMiasma('// prettier-ignore', 'typescript')).not.toBeNull()
   })
 
   it('should detect Python suppressions', () => {
     expect(matchSuppressMiasma('x = 1  # noqa: E501', 'python')).not.toBeNull()
     expect(matchSuppressMiasma('# type: ignore', 'python')).not.toBeNull()
+    expect(matchSuppressMiasma('x = 1', 'python')).toBeNull()
   })
 
   it('should detect Rust compiler allowances', () => {
     expect(matchSuppressMiasma('#[allow(unused_variables)]', 'rust')).not.toBeNull()
     expect(matchSuppressMiasma('#[allow(dead_code)]', 'rust')).not.toBeNull()
     expect(matchSuppressMiasma('#[allow(clippy::all)]', 'rust')).not.toBeNull()
+    expect(matchSuppressMiasma('let x = 1;', 'rust')).toBeNull()
   })
 
   it('should detect Go linter suppressions', () => {
     expect(matchSuppressMiasma('//nolint:errcheck', 'go')).not.toBeNull()
     expect(matchSuppressMiasma('// nolint', 'go')).not.toBeNull()
+    expect(matchSuppressMiasma('// regular comment', 'go')).toBeNull()
   })
 
   it('should detect PHP static analyzer suppressions', () => {
     expect(matchSuppressMiasma('// @phpstan-ignore-next-line', 'php')).not.toBeNull()
     expect(matchSuppressMiasma('/** @psalm-suppress UndefinedMethod */', 'php')).not.toBeNull()
+    expect(matchSuppressMiasma('// regular comment', 'php')).toBeNull()
   })
 
-  it('should ignore regular comments', () => {
+  it('should ignore regular comments and unknown languages', () => {
     expect(matchSuppressMiasma('// This function computes the hash', 'typescript')).toBeNull()
     expect(matchSuppressMiasma('# Read configuration file', 'python')).toBeNull()
+    expect(matchSuppressMiasma('// @ts-ignore', 'unknown')).toBeNull()
   })
 })
 

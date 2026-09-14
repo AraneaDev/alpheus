@@ -1,5 +1,8 @@
 import type { MiasmaCategory } from '../scanner/types.ts'
 
+/**
+ * Terminal UI color theme, glyphs, and border styles.
+ */
 export const theme = {
   categoryColor: (category: MiasmaCategory): string => {
     switch (category) {

@@ -44,10 +44,10 @@ describe('Miasma Rule: [TOMBSTONE]', () => {
     expect(tombstones.length).toBe(0)
   })
 
-  it('should ignore short single-line comments', () => {
+  it('should handle non-contiguous commented lines correctly', () => {
     const lines = [
       { lineNumber: 10, content: '// const x = 1;' },
-      { lineNumber: 11, content: 'const y = 2;' },
+      { lineNumber: 20, content: '// const y = 2;' },
     ]
     const tombstones = matchTombstoneBlocks(lines, 'typescript')
     expect(tombstones.length).toBe(0)

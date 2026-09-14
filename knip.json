@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/hooks/pre-tool-use.ts",
+    "test/**/*.test.ts",
+    "test/**/*.test.tsx"
+  ],
+  "project": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "test/**/*.ts",
+    "test/**/*.tsx"
+  ]
+}

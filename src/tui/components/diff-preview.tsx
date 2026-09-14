@@ -9,6 +9,9 @@ interface DiffPreviewProps {
   cwd: string
 }
 
+/**
+ * Terminal component displaying syntax-styled contextual diffs for a selected finding.
+ */
 export const DiffPreview: React.FC<DiffPreviewProps> = ({ item, cwd }) => {
   if (!item) {
     return (

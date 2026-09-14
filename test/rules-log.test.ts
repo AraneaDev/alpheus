@@ -57,5 +57,16 @@ describe('Miasma Rule: [LOG]', () => {
   it('should detect Shell debug tracing', () => {
     expect(matchLogMiasma('set -x', 'shell')).not.toBeNull()
     expect(matchLogMiasma('echo "DEBUG: done"', 'shell')).not.toBeNull()
+    expect(matchLogMiasma('echo "hello world"', 'shell')).toBeNull()
+  })
+
+  it('should handle inline statements, negative cases, and unknown languages', () => {
+    expect(matchLogMiasma('const x = 1; console.log(x)', 'javascript')).not.toBeNull()
+    expect(matchLogMiasma('const x = 1;', 'javascript')).toBeNull()
+    expect(matchLogMiasma('x = 1', 'python')).toBeNull()
+    expect(matchLogMiasma('let x = 1;', 'rust')).toBeNull()
+    expect(matchLogMiasma('x := 1', 'go')).toBeNull()
+    expect(matchLogMiasma('$x = 1;', 'php')).toBeNull()
+    expect(matchLogMiasma('console.log("hi")', 'unknown')).toBeNull()
   })
 })

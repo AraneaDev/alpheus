@@ -3,6 +3,9 @@ import { join } from 'path'
 import type { MiasmaItem, PurgeSummary } from '../scanner/types.ts'
 import { createSafetyBackup } from './backup.ts'
 
+/**
+ * Options controlling the purge execution behavior.
+ */
 export interface PurgeOptions {
   dryRun?: boolean
   skipBackup?: boolean

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type {
   BackupManifest,
+  ContextLine,
   DiffHunk,
   MiasmaCategory,
   MiasmaItem,
@@ -8,7 +9,8 @@ import type {
 } from '../src/scanner/types.ts'
 
 describe('Core Domain Types', () => {
-  it('should instantiate a valid MiasmaItem', () => {
+  it('should instantiate a valid MiasmaItem and ContextLine', () => {
+    const ctx: ContextLine = { line: 41, content: 'const a = 1', isTarget: false }
     const item: MiasmaItem = {
       id: 'item-1',
       filePath: 'src/index.ts',
@@ -18,7 +20,7 @@ describe('Core Domain Types', () => {
       explanation: 'Ephemeral debug print',
       confidence: 1.0,
       contextLines: [
-        { line: 41, content: 'const a = 1', isTarget: false },
+        ctx,
         { line: 42, content: 'console.log("debug")', isTarget: true },
         { line: 43, content: 'return a', isTarget: false },
       ],

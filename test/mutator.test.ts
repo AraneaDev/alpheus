@@ -121,4 +121,25 @@ describe('In-Place File Mutator', () => {
     expect(readFileSync(join(TEST_DIR, 'src/dry.ts'), 'utf-8')).toBe(fileContent)
     expect(existsSync(join(TEST_DIR, '.alpheus/backups'))).toBe(false)
   })
+
+  it('should collapse consecutive blank lines when purging', async () => {
+    const fileContent = 'const a = 1;\n\nconsole.log("drop");\n\nconst b = 2;\n'
+    writeFileSync(join(TEST_DIR, 'src/collapse.ts'), fileContent)
+
+    const items: MiasmaItem[] = [
+      {
+        id: '1',
+        filePath: 'src/collapse.ts',
+        lineNumber: 3,
+        category: 'LOG',
+        matchedContent: 'console.log("drop");',
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+    ]
+
+    await purgeMiasma(TEST_DIR, items)
+    const result = readFileSync(join(TEST_DIR, 'src/collapse.ts'), 'utf-8')
+    expect(result).toBe('const a = 1;\n\nconst b = 2;\n')
+  })
 })

@@ -60,4 +60,23 @@ describe('Miasma Engine Orchestrator', () => {
     expect(tombstone).toBeDefined()
     expect(tombstone?.lineNumber).toBe(1)
   })
+
+  it('should detect PATH miasma in hunks', () => {
+    const hunks: DiffHunk[] = [
+      {
+        filePath: 'src/config.ts',
+        startLine: 1,
+        lineCount: 1,
+        lines: [
+          { lineNumber: 1, content: 'const path = "/home/developer/secrets.json";', type: 'add' },
+        ],
+      },
+    ]
+
+    const items = evaluateHunks(hunks)
+    const pathItem = items.find((i) => i.category === 'PATH')
+    expect(pathItem).toBeDefined()
+    expect(pathItem?.filePath).toBe('src/config.ts')
+    expect(pathItem?.lineNumber).toBe(1)
+  })
 })

@@ -1,5 +1,8 @@
 import type { SupportedLanguage } from '../language.ts'
 
+/**
+ * A detected block of commented-out dead code.
+ */
 export interface TombstoneBlock {
   startLine: number
   endLine: number
@@ -10,7 +13,7 @@ export interface TombstoneBlock {
  * Checks whether a series of lines contains a commented-out dead code block.
  *
  * @param lines - Array of lines with their line numbers and content.
- * @param lang - Programming language.
+ * @param _lang - Programming language.
  * @returns Array of detected tombstone blocks.
  */
 export function matchTombstoneBlocks(

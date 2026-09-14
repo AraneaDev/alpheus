@@ -26,8 +26,17 @@ Flags:
 `)
 }
 
-export async function main(args: string[] = process.argv.slice(2)): Promise<number> {
-  const cwd = process.cwd()
+/**
+ * Main command-line entrypoint for Alpheus CLI.
+ *
+ * @param args - CLI arguments array (defaults to process.argv.slice(2)).
+ * @param cwd - Repository working directory (defaults to process.cwd()).
+ * @returns Exit code (0 for success, 1 for errors or detected miasma).
+ */
+export async function main(
+  args: string[] = process.argv.slice(2),
+  cwd: string = process.cwd(),
+): Promise<number> {
   const command = args[0] || ''
 
   if (command === 'help' || args.includes('--help') || args.includes('-h')) {
@@ -128,7 +137,5 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
 }
 
 if (import.meta.main) {
-  main().then((code) => {
-    process.exit(code)
-  })
+  process.exitCode = await main(process.argv.slice(2))
 }
