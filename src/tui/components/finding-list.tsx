@@ -40,7 +40,7 @@ export const FindingList: React.FC<FindingListProps> = ({
           Miasma Items ({items.length})
         </Text>
         {hasMoreAbove && (
-          <Text dimColor>▲ {startIndex} above</Text>
+          <Text dimColor>^ {startIndex} above</Text>
         )}
       </Box>
       <Box flexDirection="column" marginTop={1} flexGrow={1}>
@@ -50,6 +50,7 @@ export const FindingList: React.FC<FindingListProps> = ({
           const isSelected = selectedIds.has(item.id)
           const loc = item.lineNumber ? `${item.filePath}:${item.lineNumber}` : item.filePath
           const catColor = theme.categoryColor(item.category)
+          const catLabel = `[${item.category}]`.padEnd(11, ' ')
 
           return (
             <Box key={item.id}>
@@ -60,10 +61,10 @@ export const FindingList: React.FC<FindingListProps> = ({
                 {theme.checkbox(isSelected)}{' '}
               </Text>
               <Text bold color={catColor}>
-                [{item.category}]
+                {catLabel}{' '}
               </Text>
-              <Text bold color={isCursor ? 'white' : 'gray'} wrap="truncate-end">
-                {' '}{loc}
+              <Text bold={isCursor} color={isCursor ? 'white' : 'gray'} wrap="truncate-end">
+                {loc}
               </Text>
             </Box>
           )
@@ -71,7 +72,7 @@ export const FindingList: React.FC<FindingListProps> = ({
       </Box>
       {hasMoreBelow && (
         <Box marginTop={1}>
-          <Text dimColor>▼ {items.length - endIndex} below</Text>
+          <Text dimColor>v {items.length - endIndex} below</Text>
         </Box>
       )}
     </Box>

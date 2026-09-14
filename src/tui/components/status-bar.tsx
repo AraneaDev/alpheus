@@ -19,9 +19,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({ selectedCount, totalCount 
       width="100%"
     >
       <Box>
-        <Text color="cyan">&lt;↑/↓/j/k&gt; Navigate  </Text>
+        <Text color="cyan">&lt;j/k&gt; Move  </Text>
         <Text color="yellow">&lt;Space&gt; Toggle  </Text>
-        <Text color="magenta">&lt;a&gt; Toggle All  </Text>
+        <Text color="magenta">&lt;a&gt; All  </Text>
         <Text color="red">&lt;q&gt; Cancel</Text>
       </Box>
       <Box>

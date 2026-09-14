@@ -10,6 +10,10 @@
  */
 import { mkdirSync, writeFileSync } from 'fs'
 import { dirname } from 'path'
+import React from 'react'
+import { render } from 'ink-testing-library'
+import { App } from '../src/tui/app.tsx'
+import type { MiasmaItem, PurgeSummary } from '../src/scanner/types.ts'
 
 const CELL_W = 8.5
 const CELL_H = 19
@@ -137,21 +141,29 @@ function renderBox(char: string, cellX: number, cellTop: number, color: string):
   if (rounded) {
     const r = 4
     if (char === '╭') {
-      out.push(`<path d="M ${midX + r} ${cellTop} A ${r} ${r} 0 0 0 ${cellX} ${midY + r}" stroke="${color}" stroke-width="1.2" fill="none"/>`)
-      l(midX + r, cellTop, cellX + CELL_W, cellTop)
-      l(cellX, midY + r, cellX, cellTop + CELL_H)
+      out.push(
+        `<path d="M ${midX.toFixed(1)} ${(midY + r).toFixed(1)} A ${r} ${r} 0 0 1 ${(midX + r).toFixed(1)} ${midY.toFixed(1)}" stroke="${color}" stroke-width="1.2" fill="none"/>`,
+      )
+      l(midX + r, midY, cellX + CELL_W, midY)
+      l(midX, midY + r, midX, cellTop + CELL_H)
     } else if (char === '╮') {
-      out.push(`<path d="M ${cellX + CELL_W} ${midY + r} A ${r} ${r} 0 0 0 ${midX - r} ${cellTop}" stroke="${color}" stroke-width="1.2" fill="none"/>`)
-      l(cellX, cellTop, midX - r, cellTop)
-      l(cellX + CELL_W, midY + r, cellX + CELL_W, cellTop + CELL_H)
+      out.push(
+        `<path d="M ${(midX - r).toFixed(1)} ${midY.toFixed(1)} A ${r} ${r} 0 0 1 ${midX.toFixed(1)} ${(midY + r).toFixed(1)}" stroke="${color}" stroke-width="1.2" fill="none"/>`,
+      )
+      l(cellX, midY, midX - r, midY)
+      l(midX, midY + r, midX, cellTop + CELL_H)
     } else if (char === '╰') {
-      out.push(`<path d="M ${cellX} ${midY - r} A ${r} ${r} 0 0 0 ${midX + r} ${cellTop + CELL_H}" stroke="${color}" stroke-width="1.2" fill="none"/>`)
-      l(cellX, cellTop, cellX, midY - r)
-      l(midX + r, cellTop + CELL_H, cellX + CELL_W, cellTop + CELL_H)
+      out.push(
+        `<path d="M ${midX.toFixed(1)} ${(midY - r).toFixed(1)} A ${r} ${r} 0 0 0 ${(midX + r).toFixed(1)} ${midY.toFixed(1)}" stroke="${color}" stroke-width="1.2" fill="none"/>`,
+      )
+      l(midX, cellTop, midX, midY - r)
+      l(midX + r, midY, cellX + CELL_W, midY)
     } else if (char === '╯') {
-      out.push(`<path d="M ${midX - r} ${cellTop + CELL_H} A ${r} ${r} 0 0 0 ${cellX + CELL_W} ${midY - r}" stroke="${color}" stroke-width="1.2" fill="none"/>`)
-      l(cellX, cellTop + CELL_H, midX - r, cellTop + CELL_H)
-      l(cellX + CELL_W, cellTop, cellX + CELL_W, midY - r)
+      out.push(
+        `<path d="M ${(midX - r).toFixed(1)} ${midY.toFixed(1)} A ${r} ${r} 0 0 0 ${midX.toFixed(1)} ${(midY - r).toFixed(1)}" stroke="${color}" stroke-width="1.2" fill="none"/>`,
+      )
+      l(cellX, midY, midX - r, midY)
+      l(midX, cellTop, midX, midY - r)
     }
     return out
   }
@@ -251,31 +263,76 @@ async function main() {
   console.log('Generating Alpheus README screenshots...')
 
   // 1. Interactive TUI Card
-  const tuiLines = [
-    '\x1b[36m╭──────────────────────────────────────────────────────────────────────────────────╮\x1b[0m',
-    '\x1b[36m│\x1b[0m \x1b[1m\x1b[36mAlpheus\x1b[0m — Sweeping the agent\'s debris before you commit. Select items to purge.  \x1b[36m│\x1b[0m',
-    '\x1b[36m╰──────────────────────────────────────────────────────────────────────────────────╯\x1b[0m',
-    '',
-    '\x1b[36m┌────────────────────────────────────────┐\x1b[0m \x1b[90m┌──────────────────────────────────────────────┐\x1b[0m',
-    '\x1b[36m│\x1b[0m \x1b[1m\x1b[36mMiasma Items (5)\x1b[0m                       \x1b[36m│\x1b[0m \x1b[90m│\x1b[0m \x1b[1mContext: src/auth.ts:42\x1b[0m      \x1b[33m[LOG] Debug statement\x1b[0m \x1b[90m│\x1b[0m',
-    '\x1b[36m│\x1b[0m                                        \x1b[36m│\x1b[0m \x1b[90m│\x1b[0m                                              \x1b[90m│\x1b[0m',
-    '\x1b[36m│\x1b[0m \x1b[36m❯\x1b[0m \x1b[32m[x]\x1b[0m \x1b[36m[LOG]\x1b[0m src/auth.ts:42            \x1b[36m│\x1b[0m \x1b[90m│\x1b[0m    40:   const token = generateToken();       \x1b[90m│\x1b[0m',
-    '\x1b[36m│\x1b[0m   \x1b[32m[x]\x1b[0m \x1b[33m[SUPPRESS]\x1b[0m src/client.ts:15      \x1b[36m│\x1b[0m \x1b[90m│\x1b[0m    41:                                        \x1b[90m│\x1b[0m',
-    '\x1b[36m│\x1b[0m   \x1b[32m[x]\x1b[0m \x1b[31m[PATH]\x1b[0m src/config.ts:8            \x1b[36m│\x1b[0m \x1b[90m│\x1b[0m \x1b[31m-  42:   console.log("DEBUG token:", token);  \x1b[0m \x1b[90m│\x1b[0m',
-    '\x1b[36m│\x1b[0m   \x1b[32m[x]\x1b[0m \x1b[90m[TOMBSTONE]\x1b[0m src/calc.py:94        \x1b[36m│\x1b[0m \x1b[90m│\x1b[0m    43:                                        \x1b[90m│\x1b[0m',
-    '\x1b[36m│\x1b[0m   \x1b[90m[ ]\x1b[0m \x1b[35m[SCRATCH]\x1b[0m temp.scratch.json       \x1b[36m│\x1b[0m \x1b[90m│\x1b[0m    44:   return verifySession(token);         \x1b[90m│\x1b[0m',
-    '\x1b[36m│\x1b[0m                                        \x1b[36m│\x1b[0m \x1b[90m│\x1b[0m                                              \x1b[90m│\x1b[0m',
-    '\x1b[36m└────────────────────────────────────────┘\x1b[0m \x1b[90m└──────────────────────────────────────────────┘\x1b[0m',
-    '',
-    '\x1b[90m┌──────────────────────────────────────────────────────────────────────────────────┐\x1b[0m',
-    '\x1b[90m│\x1b[0m \x1b[36m<↑/↓/j/k>\x1b[0m Navigate  \x1b[33m<Space>\x1b[0m Toggle  \x1b[35m<a>\x1b[0m Toggle All  \x1b[31m<q>\x1b[0m Cancel    \x1b[1m\x1b[32m<Enter> Purge Selected (4/5)\x1b[0m \x1b[90m│\x1b[0m',
-    '\x1b[90m└──────────────────────────────────────────────────────────────────────────────────┘\x1b[0m',
+  const dummyItems: MiasmaItem[] = [
+    {
+      id: 'item-1',
+      filePath: 'src/auth.ts',
+      lineNumber: 42,
+      category: 'LOG',
+      matchedContent: 'console.log("DEBUG token:", token);',
+      explanation: 'Ephemeral JavaScript/TypeScript console statement',
+      confidence: 1,
+      contextLines: [
+        { line: 40, content: 'const token = generateToken();', isTarget: false },
+        { line: 41, content: '', isTarget: false },
+        { line: 42, content: 'console.log("DEBUG token:", token);', isTarget: true },
+        { line: 43, content: '', isTarget: false },
+        { line: 44, content: 'return verifySession(token);', isTarget: false },
+      ],
+    },
+    {
+      id: 'item-2',
+      filePath: 'src/client.ts',
+      lineNumber: 15,
+      category: 'SUPPRESS',
+      matchedContent: '// @ts-ignore',
+      explanation: 'TypeScript compiler error suppression comment',
+      confidence: 1,
+    },
+    {
+      id: 'item-3',
+      filePath: 'src/config.ts',
+      lineNumber: 8,
+      category: 'PATH',
+      matchedContent: 'const p = "/home/developer/secret.pem";',
+      explanation: 'Hardcoded workstation absolute home directory path',
+      confidence: 1,
+    },
+    {
+      id: 'item-4',
+      filePath: 'src/calc.py',
+      lineNumber: 94,
+      category: 'TOMBSTONE',
+      matchedContent: '# commented out block',
+      explanation: 'Commented-out dead code block (4 lines)',
+      confidence: 1,
+    },
+    {
+      id: 'item-5',
+      filePath: 'temp.scratch.json',
+      category: 'SCRATCH',
+      matchedContent: 'temp.scratch.json',
+      explanation: 'Untracked scratch or temporary file',
+      confidence: 1,
+    },
   ]
 
+  const { lastFrame } = render(
+    React.createElement(App, {
+      items: dummyItems,
+      cwd: process.cwd(),
+      columns: 88,
+      rows: 18,
+      onPurge: async () => ({} as PurgeSummary),
+      onDone: () => {},
+    }),
+  )
+
+  const tuiLines = (lastFrame() || '').split('\n')
   const tuiSvg = generateCard(tuiLines, 'alpheus')
   mkdirSync('docs/images', { recursive: true })
   writeFileSync('docs/images/tui.svg', tuiSvg)
-  console.log('✓ Wrote docs/images/tui.svg')
+  console.log('[ok] Wrote docs/images/tui.svg')
 
   // 2. Check Command Card
   const checkLines = [
@@ -288,7 +345,7 @@ async function main() {
     '   src/client.ts:15                    // @ts-ignore — TypeScript compiler error suppression comment',
     '',
     ' \x1b[31m[PATH]\x1b[0m (1)',
-    '   src/config.ts:8                     const p = "/home/tim/Work/secret.pem"; — Hardcoded workstation absolute home directory path',
+    '   src/config.ts:8                     const p = "/home/developer/secret.pem"; — Hardcoded workstation absolute home directory path',
     '',
     ' \x1b[90m[TOMBSTONE]\x1b[0m (1)',
     '   src/calc.py:94                      Commented-out dead code block (4 lines) — Commented-out dead code block (4 lines)',
@@ -301,18 +358,18 @@ async function main() {
 
   const checkSvg = generateCard(checkLines, 'alpheus check')
   writeFileSync('docs/images/check.svg', checkSvg)
-  console.log('✓ Wrote docs/images/check.svg')
+  console.log('[ok] Wrote docs/images/check.svg')
 
   // 3. Clean Batch Card
   const cleanLines = [
-    '\x1b[32m✨ Alpheus purged 4 items across 3 files.\x1b[0m',
+    '\x1b[32mAlpheus purged 4 items across 3 files.\x1b[0m',
     'Deleted 1 scratch files: temp.scratch.json',
     'Backup saved to \x1b[36m.alpheus/backups/20260914_174539_0f78\x1b[0m. (Restore anytime via `alpheus restore`)',
   ]
 
   const cleanSvg = generateCard(cleanLines, 'alpheus clean --all')
   writeFileSync('docs/images/clean.svg', cleanSvg)
-  console.log('✓ Wrote docs/images/clean.svg')
+  console.log('[ok] Wrote docs/images/clean.svg')
 }
 
 if (import.meta.main) {

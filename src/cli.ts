@@ -72,7 +72,7 @@ export async function main(
     try {
       const items = await evaluateWorkingTree(cwd)
       if (items.length === 0) {
-        console.log('✨ Working tree clean. No miasma to purge.')
+        console.log('Working tree clean. No miasma to purge.')
         return 0
       }
 
@@ -81,7 +81,7 @@ export async function main(
       if (isDryRun) {
         console.log(`[Dry Run] Would purge ${items.length} items across ${summary.modifiedFiles.length} files.`)
       } else {
-        console.log(`✨ Alpheus purged ${items.length} items across ${summary.modifiedFiles.length} files.`)
+        console.log(`Alpheus purged ${items.length} items across ${summary.modifiedFiles.length} files.`)
         if (summary.unlinkedFiles.length > 0) {
           console.log(`Deleted ${summary.unlinkedFiles.length} scratch files: ${summary.unlinkedFiles.join(', ')}`)
         }
@@ -98,7 +98,7 @@ export async function main(
     const targetId = args[1]
     try {
       const restored = await restoreBackup(cwd, targetId)
-      console.log(`✨ Successfully restored ${restored.length} files from backup:`)
+      console.log(`Successfully restored ${restored.length} files from backup:`)
       for (const f of restored) {
         console.log(`  - ${f}`)
       }

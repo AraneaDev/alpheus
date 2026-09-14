@@ -40,7 +40,7 @@ describe('App TUI Extended Interactions', () => {
     )
 
     // Initially on item 0
-    expect(lastFrame()).toContain('❯')
+    expect(lastFrame()).toContain('>')
 
     // Navigate down with 'j'
     stdin.write('j')

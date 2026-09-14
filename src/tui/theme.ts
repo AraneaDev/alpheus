@@ -20,7 +20,7 @@ export const theme = {
         return 'white'
     }
   },
-  pointer: '❯',
+  pointer: '>',
   checkbox: (selected: boolean): string => (selected ? '[x]' : '[ ]'),
   borderStyle: 'round' as const,
 }
