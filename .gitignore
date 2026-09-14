@@ -3,3 +3,7 @@ dist/
 coverage/
 .alpheus/
 *.log
+
+# Working notes, specs and plans
+/docs/specs/
+/docs/plans/

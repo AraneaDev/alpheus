@@ -1,11 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
+    "scripts/*.ts",
     "src/hooks/pre-tool-use.ts",
     "test/**/*.test.ts",
     "test/**/*.test.tsx"
   ],
   "project": [
+    "scripts/**/*.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
     "test/**/*.ts",

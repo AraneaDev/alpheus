@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1155" height="420" viewBox="0 0 1155 420" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
+  <rect width="1155" height="420" rx="8" fill="#10151d"/>
+  <line x1="20" y1="44" x2="1135" y2="44" stroke="#26303d" stroke-width="1"/>
+  <text x="20" y="33" fill="#63707f">$ </text><text x="37" y="33" fill="#ece5d5" font-weight="600">alpheus check</text>
+  <text x="20.0" y="71.0" fill="#b8c0cb" xml:space="preserve">Alpheus — 5 agent miasma items found in working tree:</text>
+  <text x="28.5" y="109.0" fill="#56b6c2" xml:space="preserve">[LOG]</text>
+  <text x="79.5" y="109.0" fill="#b8c0cb" xml:space="preserve">(1)</text>
+  <text x="45.5" y="128.0" fill="#b8c0cb" xml:space="preserve">src/auth.ts:42                      console.log("DEBUG token:", token); — Ephemeral JavaScript/TypeScript console statement</text>
+  <text x="28.5" y="166.0" fill="#d8a13f" xml:space="preserve">[SUPPRESS]</text>
+  <text x="122.0" y="166.0" fill="#b8c0cb" xml:space="preserve">(1)</text>
+  <text x="45.5" y="185.0" fill="#b8c0cb" xml:space="preserve">src/client.ts:15                    // @ts-ignore — TypeScript compiler error suppression comment</text>
+  <text x="28.5" y="223.0" fill="#cf6a63" xml:space="preserve">[PATH]</text>
+  <text x="88.0" y="223.0" fill="#b8c0cb" xml:space="preserve">(1)</text>
+  <text x="45.5" y="242.0" fill="#b8c0cb" xml:space="preserve">src/config.ts:8                     const p = "/home/tim/Work/secret.pem"; — Hardcoded workstation absolute home directory path</text>
+  <text x="28.5" y="280.0" fill="#63707f" xml:space="preserve">[TOMBSTONE]</text>
+  <text x="130.5" y="280.0" fill="#b8c0cb" xml:space="preserve">(1)</text>
+  <text x="45.5" y="299.0" fill="#b8c0cb" xml:space="preserve">src/calc.py:94                      Commented-out dead code block (4 lines) — Commented-out dead code block (4 lines)</text>
+  <text x="28.5" y="337.0" fill="#c678dd" xml:space="preserve">[SCRATCH]</text>
+  <text x="113.5" y="337.0" fill="#b8c0cb" xml:space="preserve">(1)</text>
+  <text x="45.5" y="356.0" fill="#b8c0cb" xml:space="preserve">temp.scratch.json                   temp.scratch.json — Untracked scratch or temporary file</text>
+  <text x="20.0" y="394.0" fill="#b8c0cb" xml:space="preserve">Run `alpheus` to interactively purge, or `alpheus clean --all` to batch purge with automatic backup.</text>
+</svg>
