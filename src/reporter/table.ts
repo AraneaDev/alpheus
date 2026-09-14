@@ -8,7 +8,7 @@ import type { MiasmaItem } from '../scanner/types.ts'
  */
 export function formatTable(items: MiasmaItem[]): string {
   if (items.length === 0) {
-    return '✨ Working tree clean. No agent miasma detected.'
+    return 'Working tree clean. No agent miasma detected.'
   }
 
   const out: string[] = []

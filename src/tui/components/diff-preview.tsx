@@ -101,11 +101,18 @@ export const DiffPreview: React.FC<DiffPreviewProps> = ({ item, cwd, maxLines })
 
   return (
     <Box borderStyle="single" borderColor="gray" flexDirection="column" paddingX={1} flexGrow={1} height="100%">
-      <Box justifyContent="space-between">
-        <Text bold color="white" wrap="truncate-end">
-          Context: {item.filePath}:{item.lineNumber}
+      <Box flexDirection="column">
+        <Box justifyContent="space-between">
+          <Text bold color="white" wrap="truncate-end">
+            Context: {item.filePath}:{item.lineNumber}
+          </Text>
+          <Text bold color="yellow">
+            [{item.category}]
+          </Text>
+        </Box>
+        <Text dimColor wrap="truncate-end">
+          {item.explanation}
         </Text>
-        <Text color="yellow">[{item.category}] {item.explanation}</Text>
       </Box>
       <Box marginTop={1} flexDirection="column" flexGrow={1}>
         {snippet.map((l) => (

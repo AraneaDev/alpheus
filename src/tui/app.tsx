@@ -83,7 +83,7 @@ export const App: React.FC<AppProps> = ({
       onPurge(chosen)
         .then((summary) => {
           setStatusMessage(
-            `✨ Purged ${chosen.length} items across ${summary.modifiedFiles.length} files. Backup: ${summary.backupPath}`,
+            `Purged ${chosen.length} items across ${summary.modifiedFiles.length} files. Backup: ${summary.backupPath}`,
           )
           setTimeout(() => {
             exit()
@@ -161,7 +161,7 @@ export async function runTui(
   const items = initialItems ?? (await evaluateWorkingTree(cwd))
 
   if (items.length === 0) {
-    console.log('✨ Working tree clean. No agent miasma detected.')
+    console.log('Working tree clean. No agent miasma detected.')
     console.log('Tip: Run `alpheus demo` to explore the interactive TUI with simulated findings.')
     return 0
   }
@@ -207,7 +207,7 @@ export async function runTui(
     )
   }).then((code) => {
     if (lastSummary) {
-      console.log(`✨ Alpheus purged ${lastSummary.modifiedFiles.reduce((acc, f) => acc + f.purgedLineCount, 0)} items across ${lastSummary.modifiedFiles.length} files.`)
+      console.log(`Alpheus purged ${lastSummary.modifiedFiles.reduce((acc, f) => acc + f.purgedLineCount, 0)} items across ${lastSummary.modifiedFiles.length} files.`)
       if (lastSummary.unlinkedFiles.length > 0) {
         console.log(`Deleted ${lastSummary.unlinkedFiles.length} scratch files: ${lastSummary.unlinkedFiles.join(', ')}`)
       }

@@ -23,7 +23,7 @@ async function handlePreTool(): Promise<void> {
     if (/\bgit\s+commit\b/.test(cmd)) {
       const items = await evaluateWorkingTree(process.cwd())
       if (items.length > 0) {
-        console.error(`\n[Alpheus] ⚠️ Working tree contains ${items.length} uncommitted agent miasma items:`)
+        console.error(`\n[Alpheus] Working tree contains ${items.length} uncommitted agent miasma items:`)
         for (const i of items.slice(0, 5)) {
           const loc = i.lineNumber ? `${i.filePath}:${i.lineNumber}` : i.filePath
           console.error(`  - [${i.category}] ${loc} (${i.explanation})`)
