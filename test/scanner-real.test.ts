@@ -71,4 +71,15 @@ describe('Git Scanner — Real Repo Integration', () => {
       rmSync(nonGitDir, { recursive: true, force: true })
     }
   })
+
+  it('should deduplicate lines across staged and unstaged diffs', async () => {
+    writeFileSync(join(tmpDir, 'dedup.txt'), 'console.log("dup");\n')
+    const addProc = Bun.spawn(['git', 'add', 'dedup.txt'], { cwd: tmpDir })
+    await addProc.exited
+
+    const hunks = await scanGitDiff(tmpDir)
+    const dedupHunks = hunks.filter((h) => h.filePath === 'dedup.txt')
+    expect(dedupHunks.length).toBe(1)
+    expect(dedupHunks[0].lines.length).toBe(1)
+  })
 })

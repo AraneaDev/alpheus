@@ -63,23 +63,22 @@ export function matchTombstoneBlocks(
     currentBlock = []
   }
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    if (isCommented(line.content)) {
-      if (currentBlock.length === 0) {
+  for (const line of lines) {
+    if (!isCommented(line.content)) {
+      continue
+    }
+
+    if (currentBlock.length === 0) {
+      currentBlock.push(line)
+    } else {
+      const prev = currentBlock[currentBlock.length - 1]
+      // Check if contiguous line number
+      if (line.lineNumber === prev.lineNumber + 1) {
         currentBlock.push(line)
       } else {
-        const prev = currentBlock[currentBlock.length - 1]
-        // Check if contiguous line number
-        if (line.lineNumber === prev.lineNumber + 1) {
-          currentBlock.push(line)
-        } else {
-          flushBlock()
-          currentBlock.push(line)
-        }
+        flushBlock()
+        currentBlock.push(line)
       }
-    } else {
-      flushBlock()
     }
   }
 

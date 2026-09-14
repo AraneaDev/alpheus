@@ -12,5 +12,8 @@
     "src/**/*.tsx",
     "test/**/*.ts",
     "test/**/*.tsx"
+  ],
+  "ignoreDependencies": [
+    "@stryker-mutator/core"
   ]
 }

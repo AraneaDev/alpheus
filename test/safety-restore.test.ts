@@ -62,4 +62,24 @@ describe('Safety Backup & Restore Edge Cases', () => {
     expect(theme.checkbox(true)).toBe('[x]')
     expect(theme.checkbox(false)).toBe('[ ]')
   })
+
+  it('should skip restoring manifest files that are missing from backup directory', async () => {
+    const backupDir = join(tmpDir, '.alpheus/backups/test_missing')
+    mkdirSync(backupDir, { recursive: true })
+    const manifest = {
+      id: 'test_missing',
+      timestamp: new Date().toISOString(),
+      cwd: tmpDir,
+      files: [
+        {
+          originalPath: 'missing.ts',
+          backupRelPath: 'missing.ts',
+          action: 'modify',
+        },
+      ],
+    }
+    writeFileSync(join(backupDir, 'manifest.json'), JSON.stringify(manifest))
+    const restored = await restoreBackup(tmpDir, 'test_missing')
+    expect(restored).toEqual([])
+  })
 })

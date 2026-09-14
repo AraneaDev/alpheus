@@ -7,7 +7,7 @@ import { basename } from 'path'
  * @returns Explanation string if matched, or null if legitimate.
  */
 export function matchScratchFile(relPath: string): string | null {
-  const name = basename(relPath).toLowerCase()
+  const name = basename(relPath)
   const isTopLevel = !relPath.includes('/')
   const isScratchDir = relPath.startsWith('scratch/') || relPath.startsWith('tmp/') || relPath.startsWith('.scratch/')
 
@@ -18,8 +18,8 @@ export function matchScratchFile(relPath: string): string | null {
 
   // Files in root or explicit scratch directories
   if (isTopLevel || isScratchDir) {
-    // Generic scratch and temp prefixes/suffixes
-    if (/^(?:scratch|temp|tmp)[._-]/i.test(name) || /^(?:scratch|temp|tmp)\.[a-z0-9]+$/i.test(name)) {
+    // Generic scratch and temp prefixes
+    if (/^(?:scratch|temp|tmp)[._-]/i.test(name)) {
       return 'Untracked scratch or temporary file'
     }
 

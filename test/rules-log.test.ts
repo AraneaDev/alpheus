@@ -6,17 +6,33 @@ describe('Language Classifier', () => {
   it('should detect file languages by extension', () => {
     expect(detectLanguage('src/app.ts')).toBe('typescript')
     expect(detectLanguage('src/component.tsx')).toBe('typescript')
+    expect(detectLanguage('src/module.mts')).toBe('typescript')
+    expect(detectLanguage('src/common.cts')).toBe('typescript')
     expect(detectLanguage('lib/util.js')).toBe('javascript')
+    expect(detectLanguage('lib/view.jsx')).toBe('javascript')
+    expect(detectLanguage('lib/esm.mjs')).toBe('javascript')
+    expect(detectLanguage('lib/cjs.cjs')).toBe('javascript')
     expect(detectLanguage('scripts/run.py')).toBe('python')
+    expect(detectLanguage('scripts/stub.pyi')).toBe('python')
     expect(detectLanguage('src/main.rs')).toBe('rust')
     expect(detectLanguage('cmd/server.go')).toBe('go')
     expect(detectLanguage('api/index.php')).toBe('php')
     expect(detectLanguage('bin/deploy.sh')).toBe('shell')
+    expect(detectLanguage('bin/deploy.bash')).toBe('shell')
+    expect(detectLanguage('bin/deploy.zsh')).toBe('shell')
     expect(detectLanguage('unknown.xyz')).toBe('unknown')
+    expect(detectLanguage('no_extension_file')).toBe('unknown')
   })
 })
 
 describe('Miasma Rule: [LOG]', () => {
+  it('should ignore commented-out lines across languages', () => {
+    expect(matchLogMiasma('// console.log("token:", token);', 'typescript')).toBeNull()
+    expect(matchLogMiasma('/* console.log("token:", token); */', 'typescript')).toBeNull()
+    expect(matchLogMiasma('# print(f"Debug: {user}")', 'python')).toBeNull()
+    expect(matchLogMiasma('# echo "DEBUG: done"', 'shell')).toBeNull()
+  })
+
   it('should detect TypeScript/JavaScript debug prints', () => {
     expect(matchLogMiasma('console.log("token:", token);', 'typescript')).not.toBeNull()
     expect(matchLogMiasma('  console.debug({ state });', 'javascript')).not.toBeNull()
