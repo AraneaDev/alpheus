@@ -1,0 +1,39 @@
+{
+  "name": "alpheus",
+  "version": "0.1.0",
+  "description": "Sweeps the agent's debris—debug prints, silenced linters, scratch files—before you commit",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "alpheus": "./src/cli.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
+  "scripts": {
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "ink": "^7.1.1",
+    "react": "^19.2.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/bun": "latest",
+    "@types/react": "^19.2.18",
+    "eslint": "^10.9.1",
+    "eslint-plugin-jsdoc": "^64.2.1",
+    "ink-testing-library": "^4.0.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.68.0"
+  }
+}
