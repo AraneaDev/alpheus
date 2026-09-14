@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { parseUnifiedDiff } from '../src/scanner/git.ts'
 
 describe('Git Scanner — parseUnifiedDiff', () => {
-  it('should parse added lines from a single file unified diff', () => {
+  it('should parse added lines from a single file unified diff with standard a/b prefixes', () => {
     const rawDiff = `diff --git a/src/auth.ts b/src/auth.ts
 index 1234567..89abcdef 100644
 --- a/src/auth.ts
@@ -20,6 +20,21 @@ index 1234567..89abcdef 100644
       { lineNumber: 41, content: 'console.log("debugging token", token);', type: 'add' },
       { lineNumber: 42, content: 'const x = 1;', type: 'add' },
     ])
+  })
+
+  it('should parse diffs generated with mnemonic prefixes (i/ and w/)', () => {
+    const rawDiff = `diff --git i/src/cli.ts w/src/cli.ts
+index 4754c3f..6e442e8 100644
+--- i/src/cli.ts
++++ w/src/cli.ts
+@@ -134,0 +135 @@
++console.log("agent test");
+`
+    const hunks = parseUnifiedDiff(rawDiff)
+    expect(hunks.length).toBe(1)
+    expect(hunks[0].filePath).toBe('src/cli.ts')
+    expect(hunks[0].startLine).toBe(135)
+    expect(hunks[0].lines[0].content).toBe('console.log("agent test");')
   })
 
   it('should handle single-line additions where count is omitted', () => {

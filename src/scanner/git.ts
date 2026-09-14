@@ -2,6 +2,7 @@ import type { DiffHunk, HunkLine } from './types.ts'
 
 /**
  * Parses raw unified diff output (-U0 format) into structured DiffHunk objects.
+ * Handles standard (a/b), mnemonic (i/w/c), and prefix-less diff outputs.
  *
  * @param diffOutput - Raw output string from git diff -U0.
  * @returns Array of structured diff hunks.
@@ -29,19 +30,21 @@ export function parseUnifiedDiff(diffOutput: string): DiffHunk[] {
   }
 
   for (const line of lines) {
-    // Detect new file header: +++ b/path/to/file or +++ /dev/null
-    if (line.startsWith('+++ b/')) {
-      flushCurrentHunk()
-      currentFile = line.slice(6).trim()
-      continue
+    // Detect new file header: +++ b/path/to/file, +++ w/path/to/file, etc.
+    if (line.startsWith('+++ ')) {
+      const target = line.slice(4).trim()
+      if (target !== '/dev/null') {
+        flushCurrentHunk()
+        // Strip single-letter prefix if present (e.g. b/, w/, a/, i/)
+        currentFile = target.replace(/^[a-zA-Z]\//, '')
+        continue
+      }
     } else if (line.startsWith('diff --git ')) {
-      // Secondary fallback for file detection
       const parts = line.split(' ')
-      if (parts.length >= 4 && !currentFile) {
-        const bPart = parts[3]
-        if (bPart.startsWith('b/')) {
-          currentFile = bPart.slice(2).trim()
-        }
+      if (parts.length >= 4) {
+        const destPart = parts[parts.length - 1]
+        flushCurrentHunk()
+        currentFile = destPart.replace(/^[a-zA-Z]\//, '').trim()
       }
     }
 
@@ -90,7 +93,6 @@ async function execGit(args: string[], cwd: string): Promise<string> {
   const exitCode = await proc.exited
 
   if (exitCode !== 0) {
-    // If not a git repo or other git error, return empty string gracefully
     return ''
   }
 
@@ -99,14 +101,15 @@ async function execGit(args: string[], cwd: string): Promise<string> {
 
 /**
  * Scans both staged and unstaged git diff additions.
+ * Explicitly forces a/ and b/ prefixes to remain resilient against git config.
  *
  * @param cwd - Working directory.
  * @returns Combined diff hunks.
  */
 export async function scanGitDiff(cwd: string): Promise<DiffHunk[]> {
   const [stagedOutput, unstagedOutput] = await Promise.all([
-    execGit(['diff', '-U0', '--staged'], cwd),
-    execGit(['diff', '-U0'], cwd),
+    execGit(['diff', '-U0', '--staged', '--src-prefix=a/', '--dst-prefix=b/'], cwd),
+    execGit(['diff', '-U0', '--src-prefix=a/', '--dst-prefix=b/'], cwd),
   ])
 
   const stagedHunks = parseUnifiedDiff(stagedOutput)
