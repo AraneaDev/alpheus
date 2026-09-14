@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Box, render, Text, useApp, useInput } from 'ink'
+import { Box, render, Text, useApp, useInput, useWindowSize } from 'ink'
 import type { MiasmaItem, PurgeSummary } from '../scanner/types.ts'
 import { evaluateWorkingTree } from '../engine/matcher.ts'
 import { purgeMiasma } from '../safety/mutator.ts'
@@ -15,13 +15,26 @@ export interface AppProps {
   cwd: string
   onPurge: (selectedItems: MiasmaItem[]) => Promise<PurgeSummary>
   onDone: (exitCode: number) => void
+  columns?: number
+  rows?: number
 }
 
 /**
  * Main interactive Ink TUI application component for reviewing and purging miasma.
  */
-export const App: React.FC<AppProps> = ({ items, cwd, onPurge, onDone }) => {
+export const App: React.FC<AppProps> = ({
+  items,
+  cwd,
+  onPurge,
+  onDone,
+  columns: propCols,
+  rows: propRows,
+}) => {
   const { exit } = useApp()
+  const windowSize = useWindowSize()
+  const columns = propCols ?? windowSize.columns ?? 80
+  const rows = propRows ?? windowSize.rows ?? 24
+
   const [cursorIndex, setCursorIndex] = useState(0)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(items.map((i) => i.id)), // Selected by default
@@ -89,38 +102,45 @@ export const App: React.FC<AppProps> = ({ items, cwd, onPurge, onDone }) => {
 
   const currentItem = items[cursorIndex]
 
+  // Header = 3 rows, StatusBar = 3 rows, status message = 1 row (if present)
+  const overhead = 6 + (statusMessage ? 1 : 0)
+  const mainHeight = Math.max(6, rows - overhead)
+  const maxListItems = Math.max(3, mainHeight - 4)
+  const maxDiffLines = Math.max(4, mainHeight - 4)
+
   return (
-    <Box flexDirection="column" padding={1}>
+    <Box flexDirection="column" width={columns} height={rows} overflow="hidden">
       {/* Header */}
-      <Box borderStyle="round" borderColor="cyan" paddingX={1} marginBottom={1}>
-        <Text bold color="cyan">
+      <Box borderStyle="round" borderColor="cyan" paddingX={1} width="100%">
+        <Text bold color="cyan" wrap="truncate-end">
           Alpheus — Diverting the river through your working tree. Select items to purge.
         </Text>
       </Box>
 
       {/* Main Split Layout */}
-      <Box flexDirection="row" height={16}>
-        <Box width="50%" marginRight={1}>
+      <Box flexDirection="row" flexGrow={1} height={mainHeight} width="100%">
+        <Box width="45%" height="100%">
           <FindingList
             items={items}
             cursorIndex={cursorIndex}
             selectedIds={selectedIds}
+            maxVisibleItems={maxListItems}
           />
         </Box>
-        <Box width="50%">
-          <DiffPreview item={currentItem} cwd={cwd} />
+        <Box width="55%" height="100%">
+          <DiffPreview item={currentItem} cwd={cwd} maxLines={maxDiffLines} />
         </Box>
       </Box>
 
-      {/* Status & Help Bar */}
-      <StatusBar selectedCount={selectedIds.size} totalCount={items.length} />
-
       {/* Notifications */}
       {statusMessage && (
-        <Box marginTop={1}>
-          <Text bold color="yellow">{statusMessage}</Text>
+        <Box width="100%" paddingX={1}>
+          <Text bold color="yellow" wrap="truncate-end">{statusMessage}</Text>
         </Box>
       )}
+
+      {/* Status & Help Bar */}
+      <StatusBar selectedCount={selectedIds.size} totalCount={items.length} />
     </Box>
   )
 }
@@ -146,7 +166,9 @@ export async function runTui(
     return 0
   }
 
-  return new Promise((resolve) => {
+  let lastSummary: PurgeSummary | undefined
+
+  return new Promise<number>((resolve) => {
     const handlePurge = async (chosen: MiasmaItem[]): Promise<PurgeSummary> => {
       if (initialItems) {
         const modifiedFiles: { path: string; purgedLineCount: number }[] = []
@@ -160,14 +182,18 @@ export async function runTui(
             }
           }
         }
-        return {
+        const summary: PurgeSummary = {
           backupId: 'demo_snapshot',
           backupPath: '.alpheus/backups/demo_snapshot',
           modifiedFiles,
           unlinkedFiles: chosen.filter((i) => i.category === 'SCRATCH').map((i) => i.filePath),
         }
+        lastSummary = summary
+        return summary
       }
-      return await purgeMiasma(cwd, chosen)
+      const summary = await purgeMiasma(cwd, chosen)
+      lastSummary = summary
+      return summary
     }
 
     renderFn(
@@ -177,6 +203,17 @@ export async function runTui(
         onPurge={handlePurge}
         onDone={(code) => resolve(code)}
       />,
+      { alternateScreen: true },
     )
+  }).then((code) => {
+    if (lastSummary) {
+      console.log(`✨ Alpheus purged ${lastSummary.modifiedFiles.reduce((acc, f) => acc + f.purgedLineCount, 0)} items across ${lastSummary.modifiedFiles.length} files.`)
+      if (lastSummary.unlinkedFiles.length > 0) {
+        console.log(`Deleted ${lastSummary.unlinkedFiles.length} scratch files: ${lastSummary.unlinkedFiles.join(', ')}`)
+      }
+      console.log(`Backup saved to ${lastSummary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
+    }
+    return code
   })
 }
+

@@ -100,4 +100,30 @@ describe('Interactive Ink TUI App', () => {
     await delay(30)
     expect(lastFrame()).toContain('Purge Selected (2/2)')
   })
+
+  it('should render FindingList with windowing and scroll indicators on small rows', () => {
+    const manyItems: MiasmaItem[] = Array.from({ length: 10 }, (_, i) => ({
+      id: `item-${i}`,
+      filePath: `file-${i}.ts`,
+      category: 'LOG',
+      matchedContent: `log-${i}`,
+      explanation: `test-${i}`,
+      confidence: 1,
+    }))
+
+    const { lastFrame } = render(
+      <App
+        items={manyItems}
+        cwd="/mock/dir"
+        onPurge={mockPurge}
+        onDone={() => {}}
+        rows={12}
+        columns={80}
+      />,
+    )
+
+    const frame = lastFrame() || ''
+    expect(frame).toContain('Miasma Items (10)')
+    expect(frame).toContain('below')
+  })
 })

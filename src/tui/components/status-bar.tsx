@@ -16,7 +16,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ selectedCount, totalCount 
       borderColor="gray"
       justifyContent="space-between"
       paddingX={1}
-      marginTop={1}
+      width="100%"
     >
       <Box>
         <Text color="cyan">&lt;↑/↓/j/k&gt; Navigate  </Text>

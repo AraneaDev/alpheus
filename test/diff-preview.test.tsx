@@ -137,4 +137,43 @@ describe('DiffPreview Component', () => {
     expect(frame).toContain('Context: nonexistent-source.ts:10')
     expect(frame).toContain('console.log("demo");')
   })
+
+  it('should window contextLines around target line when length exceeds maxLines', () => {
+    const lines = Array.from({ length: 20 }, (_, i) => ({
+      line: i + 1,
+      content: `code line ${i + 1}`,
+      isTarget: i + 1 === 10,
+    }))
+    const item: MiasmaItem = {
+      id: 'window-1',
+      filePath: 'windowed.ts',
+      lineNumber: 10,
+      category: 'LOG',
+      matchedContent: 'code line 10',
+      explanation: 'Windowed context',
+      confidence: 1.0,
+      contextLines: lines,
+    }
+
+    const { lastFrame } = render(<DiffPreview item={item} cwd={tmpDir} maxLines={5} />)
+    const frame = lastFrame() || ''
+    expect(frame).toContain('code line 10')
+  })
+
+  it('should handle unreadable scratch files gracefully with catch fallback', () => {
+    const unreadablePath = join(tmpDir, 'unreadable.tmp')
+    mkdirSync(unreadablePath) // Reading a directory with readFileSync throws EISDIR
+    const item: MiasmaItem = {
+      id: 'scratch-err',
+      filePath: 'unreadable.tmp',
+      category: 'SCRATCH',
+      matchedContent: 'unreadable.tmp',
+      explanation: 'Error file',
+      confidence: 1.0,
+    }
+
+    const { lastFrame } = render(<DiffPreview item={item} cwd={tmpDir} />)
+    const frame = lastFrame() || ''
+    expect(frame).toContain('(binary or unreadable file)')
+  })
 })
