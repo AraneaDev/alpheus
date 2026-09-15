@@ -229,11 +229,13 @@ describe('tombstone spans', () => {
     expect(tombstone?.span?.lines).toEqual(block)
   })
 
-  it('records the block text rather than the explanation', () => {
+  it('includes all block lines in the span', () => {
     const items = evaluateHunks([hunk])
     const tombstone = items.find((i) => i.category === 'TOMBSTONE')
 
-    expect(tombstone?.span?.lines[0]).toBe('    # old_value = compute(x)')
-    expect(tombstone?.explanation).toContain('4 lines')
+    expect(tombstone?.span?.lines).toHaveLength(4)
+    expect(tombstone?.span?.lines[1]).toBe('    # if old_value > 0:')
+    expect(tombstone?.span?.lines[2]).toBe('    #     return old_value')
+    expect(tombstone?.span?.lines[3]).toBe('    # for row in rows:')
   })
 })
