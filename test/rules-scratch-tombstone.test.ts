@@ -292,3 +292,43 @@ describe('prose is not dead code', () => {
     expect(block[0]?.confidence ?? 0).toBeGreaterThanOrEqual(0.8)
   })
 })
+
+describe('tombstone languages allowlist', () => {
+  function hunkFor(filePath: string, lines: string[]): DiffHunk {
+    return {
+      filePath,
+      startLine: 1,
+      lineCount: lines.length,
+      lines: lines.map((content, i) => ({ lineNumber: i + 1, content, type: 'add' as const })),
+    }
+  }
+
+  const codeLikeHashComments = [
+    '# old_value = compute(x)',
+    '# if old_value > 0:',
+    '#     return old_value',
+    '# for row in rows:',
+  ]
+
+  it('still scans an extensionless file for commented-out code', () => {
+    const items = evaluateHunks([hunkFor('deploy', codeLikeHashComments)])
+    expect(items.some((i) => i.category === 'TOMBSTONE')).toBe(true)
+  })
+
+  it('still scans a .txt file for commented-out code', () => {
+    const items = evaluateHunks([hunkFor('notes.txt', codeLikeHashComments)])
+    expect(items.some((i) => i.category === 'TOMBSTONE')).toBe(true)
+  })
+
+  it('never reads a markdown heading as a commented-out code block', () => {
+    const items = evaluateHunks([
+      hunkFor('README.md', [
+        '# const config = load();',
+        '# if (config.debug) {',
+        '# console.log(config);',
+        '# }',
+      ]),
+    ])
+    expect(items.some((i) => i.category === 'TOMBSTONE')).toBe(false)
+  })
+})

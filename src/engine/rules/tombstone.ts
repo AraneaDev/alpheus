@@ -164,14 +164,17 @@ export function matchTombstoneBlocks(
  *
  * A single block rule: `matchTombstoneBlocks` scans a contiguous run of
  * lines rather than one line at a time, so it stays a block-level rule
- * regardless of language. Scoped to real programming languages so that a
- * markdown heading or a YAML key can never be read as a comment.
+ * regardless of language. `languages` excludes `markdown` and `yaml` so a
+ * heading or a YAML key can never be read as a comment, but keeps `unknown`:
+ * an extensionless or `.txt` file (a shebang script, for instance) is
+ * exactly where agent debris collects, and dropping it from this list would
+ * have traded a narrow bug for a wider gap the fix never needed to open.
  */
 export const tombstoneRules: Rule[] = [
   {
     id: 'tombstone/block',
     category: 'TOMBSTONE',
-    languages: ['typescript', 'javascript', 'python', 'rust', 'go', 'php', 'shell'],
+    languages: ['typescript', 'javascript', 'python', 'rust', 'go', 'php', 'shell', 'unknown'],
     match(ctx: MatchContext): RuleMatch[] {
       return matchTombstoneBlocks(ctx.lines, ctx.lang).map((block) => ({
         startLine: block.startLine,
