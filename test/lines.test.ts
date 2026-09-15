@@ -68,6 +68,28 @@ describe('removeRanges', () => {
     expect(out).toBe('a\n\nb\n')
   })
 
+  it('leaves a blank below untouched when the line above the gap is not blank', () => {
+    // Only the below side is blank here; the tidy is defined to fire on a
+    // blank on both sides of the gap, not either side alone.
+    const raw = 'a\nDELETE\n\nb\n'
+    const out = joinLines(removeRanges(splitLines(raw), [{ startLine: 2, endLine: 2 }]))
+    expect(out).toBe('a\n\nb\n')
+  })
+
+  it('leaves a non-blank line below untouched when only the line above the gap is blank', () => {
+    // The mirror case: above is blank but below is real content. A check
+    // that only inspects the above side would drop "b" here by mistake.
+    const raw = 'a\n\nDELETE\nb\n'
+    const out = joinLines(removeRanges(splitLines(raw), [{ startLine: 3, endLine: 3 }]))
+    expect(out).toBe('a\n\nb\n')
+  })
+
+  it('removes the file\'s first line without the off-by-one skipping it', () => {
+    const raw = 'DELETE\nb\nc\n'
+    const out = joinLines(removeRanges(splitLines(raw), [{ startLine: 1, endLine: 1 }]))
+    expect(out).toBe('b\nc\n')
+  })
+
   it('leaves intentional double blanks elsewhere untouched', () => {
     const raw = 'import os\n\n\ndef alpha():\n    print("dbg")\n    return 1\n\n\ndef beta():\n    return 2\n'
     const out = joinLines(removeRanges(splitLines(raw), [{ startLine: 5, endLine: 5 }]))

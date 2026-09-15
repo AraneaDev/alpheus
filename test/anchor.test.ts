@@ -109,6 +109,29 @@ describe('anchorFindings', () => {
 
     expect(result.anchored).toHaveLength(1)
     expect(result.unverifiable).toHaveLength(0)
+    // A scratch finding has no span, so its resolvedSpan is the fixed empty
+    // placeholder, not a guess built from file content.
+    expect(result.anchored[0].resolvedSpan).toEqual({ startLine: 0, endLine: 0, lines: [] })
+  })
+
+  it('deduplicates two scratch findings for the same file into one anchored entry', () => {
+    writeFileSync(join(DIR, 'temp.bak'), 'junk\n')
+
+    const scratch = (id: string): MiasmaItem => ({
+      id,
+      filePath: 'temp.bak',
+      category: 'SCRATCH',
+      ruleId: 'scratch/untracked',
+      explanation: 'Scratch file',
+      confidence: 1,
+    })
+
+    // Two different rules (or the staged and unstaged halves of a diff) can
+    // both flag the same untracked file. Anchoring it twice would make
+    // purgeMiasma report the same unlink as two separate outcomes.
+    const result: AnchorResult = anchorFindings(DIR, [scratch('scratch-1'), scratch('scratch-2')])
+
+    expect(result.anchored).toHaveLength(1)
   })
 
   it('deduplicates two findings that resolve to the same place', () => {

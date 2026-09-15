@@ -4,6 +4,10 @@ coverage/
 .alpheus/
 *.log
 
+# Stryker mutation testing sandbox and reports
+/.stryker-tmp/
+/reports/
+
 # Working notes, specs and plans
 /docs/specs/
 /docs/plans/

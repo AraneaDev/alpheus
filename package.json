@@ -23,6 +23,7 @@
     "lint:fix": "eslint . --fix",
     "lint:docs": "markdownlint-cli2",
     "knip": "knip",
+    "mutate": "stryker run",
     "screenshots": "FORCE_COLOR=3 bun run scripts/generate-screenshots.ts",
     "check": "bun run lint && bun run lint:docs && bun run typecheck && bun run knip && bun run test:coverage"
   },

@@ -14,7 +14,8 @@
     "test/**/*.tsx"
   ],
   "ignoreDependencies": [
-    "@stryker-mutator/core"
+    "@stryker-mutator/core",
+    "@stryker-mutator/command-runner"
   ],
   "ignore": [
     "test/fixtures/**"

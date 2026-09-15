@@ -419,7 +419,14 @@ describe('assertOnlyRangesRemoved', () => {
     const original = [line('a'), line('b'), line('DELETE'), line('d'), line('e')]
     const remaining = [line('a'), line('b'), line('d')]
 
-    expect(() => assertOnlyRangesRemoved(original, remaining, new Set([3]))).toThrow()
+    // The message, not just "it throws", is the assertion that matters here:
+    // a gutted length check would let the mismatch fall through to the
+    // per-line loop, which throws its own (unrelated) error once it walks
+    // off the end of the shorter array. Either way something throws, so only
+    // pinning the length-check's own message actually proves it ran.
+    expect(() => assertOnlyRangesRemoved(original, remaining, new Set([3]))).toThrow(
+      'Alpheus refused to write: expected exactly 4 lines, got 3',
+    )
   })
 
   it('does not throw when exactly the removed lines are missing', () => {
@@ -440,6 +447,21 @@ describe('assertOnlyRangesRemoved', () => {
       { content: 'b', terminator: '\r\n' },
     ]
 
-    expect(() => assertOnlyRangesRemoved(original, remaining, new Set([2]))).toThrow()
+    expect(() => assertOnlyRangesRemoved(original, remaining, new Set([2]))).toThrow(
+      'Alpheus refused to write: surviving lines are not exactly the original minus the removed lines',
+    )
+  })
+
+  it('throws when a surviving line has the wrong content but the right terminator', () => {
+    // Same length, same terminators throughout: only the content at one
+    // surviving position is wrong. The content check and the terminator
+    // check are independent halves of one condition, so a test that only
+    // ever varies the terminator can leave the content half unexercised.
+    const original = [line('a'), line('b'), line('DELETE'), line('d')]
+    const remaining = [line('a'), line('SOMETHING ELSE'), line('d')]
+
+    expect(() => assertOnlyRangesRemoved(original, remaining, new Set([3]))).toThrow(
+      'Alpheus refused to write: surviving lines are not exactly the original minus the removed lines',
+    )
   })
 })
