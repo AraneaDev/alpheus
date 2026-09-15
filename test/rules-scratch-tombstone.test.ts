@@ -239,3 +239,56 @@ describe('tombstone spans', () => {
     expect(tombstone?.span?.lines[3]).toBe('    # for row in rows:')
   })
 })
+
+describe('prose is not dead code', () => {
+  function blockOf(lines: string[]) {
+    return matchTombstoneBlocks(
+      lines.map((content, i) => ({ lineNumber: i + 1, content })),
+      'go',
+    )
+  }
+
+  it('scores an English doc comment below the acting threshold', () => {
+    const block = blockOf([
+      '// Retry wraps the call so that if the backend is unavailable',
+      '// we wait and try again, for at most three attempts.',
+      '// The caller does not need to know whether a retry happened.',
+      '// Errors from the final attempt are returned unchanged.',
+    ])
+
+    expect(block[0]?.confidence ?? 0).toBeLessThan(0.8)
+  })
+
+  it('scores genuinely commented-out code above it', () => {
+    const block = blockOf([
+      '// const result = compute(x);',
+      '// if (result > 0) {',
+      '//   return result;',
+      '// }',
+    ])
+
+    expect(block[0]?.confidence ?? 0).toBeGreaterThanOrEqual(0.8)
+  })
+
+  it('scores a commented-out Python block above it', () => {
+    const block = blockOf([
+      '# old_value = compute(x)',
+      '# if old_value > 0:',
+      '#     return old_value',
+      '# for row in rows:',
+    ])
+
+    expect(block[0]?.confidence ?? 0).toBeGreaterThanOrEqual(0.8)
+  })
+
+  it('scores a commented-out block that mixes prose and code above it', () => {
+    const block = blockOf([
+      '// disabled for now, see AL-441',
+      '// const client = new Client({ retries: 3 });',
+      '// client.connect();',
+      '// return client;',
+    ])
+
+    expect(block[0]?.confidence ?? 0).toBeGreaterThanOrEqual(0.8)
+  })
+})
