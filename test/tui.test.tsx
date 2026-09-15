@@ -102,6 +102,84 @@ describe('Interactive Ink TUI App', () => {
     expect(lastFrame()).toContain('Purge Selected (2/2)')
   })
 
+  it('starts with only findings at or above the confidence threshold selected', () => {
+    const mixedItems: MiasmaItem[] = [
+      {
+        id: 'high',
+        filePath: 'a.ts',
+        category: 'LOG',
+        ruleId: 'log/js-console',
+        span: { startLine: 1, endLine: 1, lines: ['console.log(1)'] },
+        explanation: 'Debug log',
+        confidence: 0.95,
+      },
+      {
+        id: 'low',
+        filePath: 'b.ts',
+        category: 'SUPPRESS',
+        ruleId: 'suppress/ts',
+        span: { startLine: 2, endLine: 2, lines: ['// @ts-expect-error'] },
+        explanation: 'check whether it is still needed',
+        confidence: 0.4,
+      },
+    ]
+
+    const { lastFrame } = render(
+      <App
+        items={mixedItems}
+        cwd="/mock/dir"
+        onPurge={mockPurge}
+        onDone={() => {}}
+      />,
+    )
+
+    expect(lastFrame()).toContain('Purge Selected (1/2)')
+  })
+
+  it('pressing "a" twice ends with an empty selection when the default selection is partial', async () => {
+    const mixedItems: MiasmaItem[] = [
+      {
+        id: 'high',
+        filePath: 'a.ts',
+        category: 'LOG',
+        ruleId: 'log/js-console',
+        span: { startLine: 1, endLine: 1, lines: ['console.log(1)'] },
+        explanation: 'Debug log',
+        confidence: 0.95,
+      },
+      {
+        id: 'low',
+        filePath: 'b.ts',
+        category: 'SUPPRESS',
+        ruleId: 'suppress/ts',
+        span: { startLine: 2, endLine: 2, lines: ['// @ts-expect-error'] },
+        explanation: 'check whether it is still needed',
+        confidence: 0.4,
+      },
+    ]
+
+    const { stdin, lastFrame } = render(
+      <App
+        items={mixedItems}
+        cwd="/mock/dir"
+        onPurge={mockPurge}
+        onDone={() => {}}
+      />,
+    )
+
+    expect(lastFrame()).toContain('Purge Selected (1/2)')
+
+    // First 'a': not everything is selected, so this selects all.
+    stdin.write('a')
+    await delay(30)
+    expect(lastFrame()).toContain('Purge Selected (2/2)')
+
+    // Second 'a': everything is selected, so this empties the set.
+    stdin.write('a')
+    await delay(30)
+    expect(lastFrame()).toContain('Purge Selected (0/2)')
+  })
+
   it('should render FindingList with windowing and scroll indicators on small rows', () => {
     const manyItems: MiasmaItem[] = Array.from({ length: 10 }, (_, i) => ({
       id: `item-${i}`,

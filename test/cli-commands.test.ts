@@ -214,4 +214,69 @@ describe('CLI Commands Dispatching', () => {
     expect(output).toContain('ghost.ts')
     expect(output).toContain('the file is gone')
   })
+
+  it('leaves a CI-runner home path in a workflow file for review instead of purging it', async () => {
+    // scorePosixHome scores /home/runner/... at 0.3 inside .github/workflows,
+    // below the 0.8 default: it is how the build works, not a leaked machine.
+    mkdirSync(join(tmpDir, '.github', 'workflows'), { recursive: true })
+    writeFileSync(
+      join(tmpDir, '.github', 'workflows', 'ci.yml'),
+      'jobs:\n  build:\n    steps:\n      - run: echo /home/runner/work/repo/repo\n',
+    )
+    await gitAddAll(tmpDir)
+
+    const checkCode = await main(['check'], tmpDir)
+    expect(checkCode).toBe(0)
+
+    const lines: string[] = []
+    const spy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      lines.push(String(msg))
+    })
+    const cleanCode = await main(['clean'], tmpDir)
+    spy.mockRestore()
+
+    expect(cleanCode).toBe(0)
+    const output = lines.join('\n')
+    expect(output).toContain('need review')
+    expect(output).toContain('ci.yml')
+    expect(readFileSync(join(tmpDir, '.github', 'workflows', 'ci.yml'), 'utf-8')).toContain('/home/runner/')
+  })
+
+  it('leaves a @ts-expect-error comment for review instead of purging it', async () => {
+    // The suppress/ts rule scores this directive at 0.4: unlike @ts-ignore it
+    // errors when unneeded, so it is usually load-bearing rather than lazy.
+    writeFileSync(
+      join(tmpDir, 'legacy.ts'),
+      'export function widen(x: number): unknown {\n  // @ts-expect-error waiting on upstream types\n  return x\n}\n',
+    )
+    await gitAddAll(tmpDir)
+
+    const checkCode = await main(['check'], tmpDir)
+    expect(checkCode).toBe(0)
+
+    const lines: string[] = []
+    const spy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      lines.push(String(msg))
+    })
+    const cleanCode = await main(['clean'], tmpDir)
+    spy.mockRestore()
+
+    expect(cleanCode).toBe(0)
+    const output = lines.join('\n')
+    expect(output).toContain('need review')
+    expect(output).toContain('legacy.ts')
+    expect(readFileSync(join(tmpDir, 'legacy.ts'), 'utf-8')).toContain('@ts-expect-error')
+  })
+
+  it('purges a below-threshold finding when --min-confidence lowers the bar', async () => {
+    writeFileSync(
+      join(tmpDir, 'legacy.ts'),
+      'export function widen(x: number): unknown {\n  // @ts-expect-error waiting on upstream types\n  return x\n}\n',
+    )
+    await gitAddAll(tmpDir)
+
+    const cleanCode = await main(['clean', '--min-confidence', '0.4'], tmpDir)
+    expect(cleanCode).toBe(0)
+    expect(readFileSync(join(tmpDir, 'legacy.ts'), 'utf-8')).not.toContain('@ts-expect-error')
+  })
 })

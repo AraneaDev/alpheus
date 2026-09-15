@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { evaluateWorkingTree } from './engine/matcher.ts'
+import { parseMinConfidence, partitionByConfidence } from './engine/threshold.ts'
 import { formatJson } from './reporter/json.ts'
 import { formatTable } from './reporter/table.ts'
 import { listBackups } from './safety/backup.ts'
@@ -65,17 +66,25 @@ export async function main(
   if (command === 'check') {
     const isJson = args.includes('--json')
     const isQuiet = args.includes('--quiet')
+    const minConfidence = parseMinConfidence(args)
 
     try {
       const items = await evaluateWorkingTree(cwd)
+      const { actionable, review } = partitionByConfidence(items, minConfidence)
 
       if (isJson) {
         console.log(formatJson(items))
       } else if (!isQuiet) {
         console.log(formatTable(items))
+        if (review.length > 0) {
+          console.log(
+            `\n${review.length} of the above sit below the confidence threshold (${minConfidence}) ` +
+              'and would not fail this check or be purged by `alpheus clean`.',
+          )
+        }
       }
 
-      return items.length === 0 ? 0 : 1
+      return actionable.length === 0 ? 0 : 1
     } catch (err: unknown) {
       console.error('Alpheus check error:', err instanceof Error ? err.message : String(err))
       return 2
@@ -84,6 +93,7 @@ export async function main(
 
   if (command === 'clean') {
     const isDryRun = args.includes('--dry-run')
+    const minConfidence = parseMinConfidence(args)
 
     try {
       const items = await evaluateWorkingTree(cwd)
@@ -92,26 +102,42 @@ export async function main(
         return 0
       }
 
-      const summary = await purgeMiasma(cwd, items, { dryRun: isDryRun })
+      const { actionable, review } = partitionByConfidence(items, minConfidence)
 
-      if (isDryRun) {
-        console.log(`[Dry Run] Would purge ${items.length} items across ${summary.modifiedFiles.length} files.`)
+      if (actionable.length === 0) {
+        console.log('Nothing to purge above the confidence threshold.')
       } else {
-        console.log(`Alpheus purged ${items.length} items across ${summary.modifiedFiles.length} files.`)
-        if (summary.unlinkedFiles.length > 0) {
-          console.log(`Deleted ${summary.unlinkedFiles.length} scratch files: ${summary.unlinkedFiles.join(', ')}`)
+        const summary = await purgeMiasma(cwd, actionable, { dryRun: isDryRun })
+
+        if (isDryRun) {
+          console.log(`[Dry Run] Would purge ${actionable.length} items across ${summary.modifiedFiles.length} files.`)
+        } else {
+          console.log(`Alpheus purged ${actionable.length} items across ${summary.modifiedFiles.length} files.`)
+          if (summary.unlinkedFiles.length > 0) {
+            console.log(`Deleted ${summary.unlinkedFiles.length} scratch files: ${summary.unlinkedFiles.join(', ')}`)
+          }
+          console.log(`Backup saved to ${summary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
         }
-        console.log(`Backup saved to ${summary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
-      }
-      if (summary.unverifiable.length > 0) {
-        console.log(`\nAlpheus could not verify ${summary.unverifiable.length} findings and left them alone:`)
-        for (const u of summary.unverifiable) {
-          const loc = u.startLine ? `${u.filePath}:${u.startLine}` : u.filePath
-          const why = UNVERIFIABLE_REASON_TEXT[u.reason]
-          console.log(`  - ${loc} (${why})`)
+        if (summary.unverifiable.length > 0) {
+          console.log(`\nAlpheus could not verify ${summary.unverifiable.length} findings and left them alone:`)
+          for (const u of summary.unverifiable) {
+            const loc = u.startLine ? `${u.filePath}:${u.startLine}` : u.filePath
+            const why = UNVERIFIABLE_REASON_TEXT[u.reason]
+            console.log(`  - ${loc} (${why})`)
+          }
+          console.log('Re-run `alpheus check` for a fresh scan.')
         }
-        console.log('Re-run `alpheus check` for a fresh scan.')
       }
+
+      if (review.length > 0) {
+        console.log(`\n${review.length} findings need review and were left alone:`)
+        for (const item of review) {
+          const loc = item.span ? `${item.filePath}:${item.span.startLine}` : item.filePath
+          console.log(`  - [${item.category}] ${loc} (${item.explanation}, confidence ${item.confidence.toFixed(2)})`)
+        }
+        console.log('Run `alpheus` to review them interactively, or lower --min-confidence.')
+      }
+
       return 0
     } catch (err: unknown) {
       console.error('Alpheus clean error:', err instanceof Error ? err.message : String(err))

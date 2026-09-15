@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Box, render, Text, useApp, useInput, useWindowSize } from 'ink'
 import type { MiasmaItem, PurgeSummary } from '../scanner/types.ts'
 import { evaluateWorkingTree } from '../engine/matcher.ts'
+import { DEFAULT_MIN_CONFIDENCE } from '../engine/threshold.ts'
 import { purgeMiasma } from '../safety/mutator.ts'
 import { DiffPreview } from './components/diff-preview.tsx'
 import { FindingList } from './components/finding-list.tsx'
@@ -37,7 +38,9 @@ export const App: React.FC<AppProps> = ({
 
   const [cursorIndex, setCursorIndex] = useState(0)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    () => new Set(items.map((i) => i.id)), // Selected by default
+    // Only findings Alpheus would act on unattended start ticked; anything
+    // below the threshold is still shown and still selectable by hand.
+    () => new Set(items.filter((i) => i.confidence >= DEFAULT_MIN_CONFIDENCE).map((i) => i.id)),
   )
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)

@@ -26,7 +26,7 @@ export function formatTable(items: MiasmaItem[]): string {
     for (const item of catItems) {
       const loc = item.span?.startLine ? `${item.filePath}:${item.span.startLine}` : item.filePath
       const matchedContent = item.span?.lines[0]?.trim() ?? item.filePath
-      out.push(`   ${loc.padEnd(35)} ${matchedContent} — ${item.explanation}`)
+      out.push(`   ${loc.padEnd(35)} ${matchedContent} — ${item.explanation} (confidence ${item.confidence.toFixed(2)})`)
     }
     out.push('')
   }

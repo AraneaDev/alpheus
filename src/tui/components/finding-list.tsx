@@ -1,6 +1,7 @@
 import React from 'react'
 import { Box, Text } from 'ink'
 import type { MiasmaItem } from '../../scanner/types.ts'
+import { DEFAULT_MIN_CONFIDENCE } from '../../engine/threshold.ts'
 import { theme } from '../theme.ts'
 
 interface FindingListProps {
@@ -48,8 +49,9 @@ export const FindingList: React.FC<FindingListProps> = ({
           const actualIdx = startIndex + relIdx
           const isCursor = actualIdx === cursorIndex
           const isSelected = selectedIds.has(item.id)
+          const isBelowThreshold = item.confidence < DEFAULT_MIN_CONFIDENCE
           const loc = item.span?.startLine ? `${item.filePath}:${item.span.startLine}` : item.filePath
-          const catColor = theme.categoryColor(item.category)
+          const catColor = isBelowThreshold ? theme.belowThresholdColor : theme.categoryColor(item.category)
           const catLabel = `[${item.category}]`.padEnd(11, ' ')
 
           return (
@@ -60,10 +62,15 @@ export const FindingList: React.FC<FindingListProps> = ({
               <Text color={isSelected ? 'green' : 'gray'}>
                 {theme.checkbox(isSelected)}{' '}
               </Text>
-              <Text bold color={catColor}>
+              <Text bold={!isBelowThreshold} dimColor={isBelowThreshold} color={catColor}>
                 {catLabel}{' '}
               </Text>
-              <Text bold={isCursor} color={isCursor ? 'white' : 'gray'} wrap="truncate-end">
+              <Text
+                bold={isCursor && !isBelowThreshold}
+                dimColor={isBelowThreshold}
+                color={isBelowThreshold ? theme.belowThresholdColor : isCursor ? 'white' : 'gray'}
+                wrap="truncate-end"
+              >
                 {loc}
               </Text>
             </Box>
