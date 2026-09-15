@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import type { MiasmaItem } from '../src/scanner/types.ts'
-import { purgeMiasma } from '../src/safety/mutator.ts'
+import { assertOnlyRangesRemoved, purgeMiasma } from '../src/safety/mutator.ts'
+import type { PhysicalLine } from '../src/safety/lines.ts'
 
 const TEST_DIR = join(import.meta.dir, 'tmp_mutator_test')
 
@@ -405,5 +406,40 @@ describe('purgeMiasma safety', () => {
     ], { skipBackup: true })
 
     expect(readFileSync(join(TEST_DIR, 'win.ts'), 'utf-8')).toBe('const a = 1\r\nconst b = 2\r\n')
+  })
+})
+
+describe('assertOnlyRangesRemoved', () => {
+  const line = (content: string): PhysicalLine => ({ content, terminator: '\n' })
+
+  it('throws when a line outside the removed set is also missing', () => {
+    // The reviewer's counterexample: only line 3 ("DELETE") was asked for,
+    // but a buggy caller also lost line 5 ("e"). A budget-based check that
+    // tolerates "one extra line per range" lets this through silently.
+    const original = [line('a'), line('b'), line('DELETE'), line('d'), line('e')]
+    const remaining = [line('a'), line('b'), line('d')]
+
+    expect(() => assertOnlyRangesRemoved(original, remaining, new Set([3]))).toThrow()
+  })
+
+  it('does not throw when exactly the removed lines are missing', () => {
+    const original = [line('a'), line('b'), line('DELETE'), line('d'), line('e')]
+    const remaining = [line('a'), line('b'), line('d'), line('e')]
+
+    expect(() => assertOnlyRangesRemoved(original, remaining, new Set([3]))).not.toThrow()
+  })
+
+  it('throws when a surviving line has the right content but the wrong terminator', () => {
+    const original = [
+      { content: 'a', terminator: '\r\n' },
+      { content: 'DELETE', terminator: '\r\n' },
+      { content: 'b', terminator: '\r\n' },
+    ]
+    const remaining = [
+      { content: 'a', terminator: '\n' },
+      { content: 'b', terminator: '\r\n' },
+    ]
+
+    expect(() => assertOnlyRangesRemoved(original, remaining, new Set([2]))).toThrow()
   })
 })

@@ -6,7 +6,7 @@ import type { BackupManifest, MiasmaItem, PurgeSummary } from '../scanner/types.
 import { writeFileAtomic } from './atomic.ts'
 import { createSafetyBackup } from './backup.ts'
 import type { LineRange, PhysicalLine } from './lines.ts'
-import { joinLines, removeRanges, splitLines } from './lines.ts'
+import { joinLines, planRemoval, splitLines } from './lines.ts'
 
 /**
  * Options controlling the purge execution behavior.
@@ -18,45 +18,40 @@ export interface PurgeOptions {
 
 /**
  * Throws unless the surviving lines are exactly the original lines minus the
- * removed ranges, in their original order.
+ * given line numbers, in their original order.
  *
- * This is the invariant the whole safety story rests on. It is cheap, and it
- * turns a future regression in range handling into a loud failure rather than a
- * quiet one that eats somebody's source.
+ * This is the invariant the whole safety story rests on, and it checks exact
+ * equality rather than a tolerance band: `remaining` must equal `original`
+ * with precisely `removedLineNumbers` taken out, no more and no fewer. An
+ * earlier version budgeted "one extra line per range" to account for the
+ * local blank-line tidy, which let an unrelated line vanish anywhere in the
+ * file without tripping the check. Consuming the same removed-line set that
+ * {@link planRemoval} used to build `remaining` closes that gap: the tidy's
+ * drop is already counted, so there is no budget left to hide a real loss.
  *
  * @param original - The file's lines before removal.
  * @param remaining - The file's lines after removal.
- * @param ranges - The ranges that were asked for.
+ * @param removedLineNumbers - The exact original line numbers that were removed.
  */
-function assertOnlyRangesRemoved(
+export function assertOnlyRangesRemoved(
   original: PhysicalLine[],
   remaining: PhysicalLine[],
-  ranges: LineRange[],
+  removedLineNumbers: Set<number>,
 ): void {
-  const removed = new Set<number>()
+  const expected = original.filter((_, idx) => !removedLineNumbers.has(idx + 1))
 
-  for (const range of ranges) {
-    for (let l = range.startLine; l <= range.endLine; l++) removed.add(l)
-  }
-
-  const expected = original.filter((_, idx) => !removed.has(idx + 1))
-
-  // The local blank-line tidy may drop at most one further line per range.
-  if (remaining.length < expected.length - ranges.length) {
+  if (remaining.length !== expected.length) {
     throw new Error(
-      `Alpheus refused to write: expected at least ${expected.length - ranges.length} lines, got ${remaining.length}`,
+      `Alpheus refused to write: expected exactly ${expected.length} lines, got ${remaining.length}`,
     )
   }
 
-  let cursor = 0
-  for (const line of remaining) {
-    while (cursor < expected.length && expected[cursor].content !== line.content) cursor++
-
-    if (cursor >= expected.length) {
-      throw new Error('Alpheus refused to write: surviving lines are not a subsequence of the original')
+  for (let i = 0; i < expected.length; i++) {
+    if (expected[i].content !== remaining[i].content || expected[i].terminator !== remaining[i].terminator) {
+      throw new Error(
+        'Alpheus refused to write: surviving lines are not exactly the original minus the removed lines',
+      )
     }
-
-    cursor++
   }
 }
 
@@ -122,22 +117,21 @@ export async function purgeMiasma(
 
     const rawContent = readFileSync(absPath, 'utf-8')
     const original = splitLines(rawContent)
-    const ranges = fileEntries.map((e) => ({
+    const ranges: LineRange[] = fileEntries.map((e) => ({
       startLine: e.resolvedSpan.startLine,
       endLine: e.resolvedSpan.endLine,
     }))
 
-    const remaining = removeRanges(original, ranges)
-    const removedCount = original.length - remaining.length
+    const { remaining, removedLineNumbers } = planRemoval(original, ranges)
     const newContent = joinLines(remaining)
 
-    assertOnlyRangesRemoved(original, remaining, ranges)
+    assertOnlyRangesRemoved(original, remaining, removedLineNumbers)
 
     if (!options?.dryRun) {
       writeFileAtomic(absPath, newContent)
     }
 
-    modifiedFiles.push({ path: relPath, purgedLineCount: removedCount })
+    modifiedFiles.push({ path: relPath, purgedLineCount: removedLineNumbers.size })
   }
 
   return { backupId, backupPath, modifiedFiles, unlinkedFiles, unverifiable: unverifiableReport }

@@ -79,4 +79,18 @@ describe('removeRanges', () => {
     const out = joinLines(removeRanges(splitLines(raw), [{ startLine: 99, endLine: 99 }]))
     expect(out).toBe(raw)
   })
+
+  it('treats two adjacent single-line ranges as one gap for blank tidying', () => {
+    // Lines 2 and 3 are adjacent but given as separate, non-overlapping
+    // ranges. Removing both should still collapse the blank left above and
+    // below the combined gap to one, exactly as a single {2,3} range would.
+    const raw = 'a\n\nDEL1\nDEL2\n\nb\n'
+    const out = joinLines(
+      removeRanges(splitLines(raw), [
+        { startLine: 3, endLine: 3 },
+        { startLine: 4, endLine: 4 },
+      ]),
+    )
+    expect(out).toBe('a\n\nb\n')
+  })
 })
