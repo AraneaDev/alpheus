@@ -1,7 +1,7 @@
 {
   "name": "alpheus",
   "displayName": "Alpheus",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Diverts a cleaning river through the working tree: sweeps debug prints, silenced linters, and scratch files before you commit.",
   "author": {
     "name": "AraneaDev",
