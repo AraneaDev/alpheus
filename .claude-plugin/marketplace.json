@@ -1,0 +1,18 @@
+{
+  "name": "alpheus",
+  "owner": {
+    "name": "AraneaDev",
+    "url": "https://github.com/AraneaDev"
+  },
+  "description": "Sweeps the agent's debris—debug prints, silenced linters, and scratch files—before you commit.",
+  "plugins": [
+    {
+      "name": "alpheus",
+      "source": {
+        "source": "github",
+        "repo": "AraneaDev/alpheus"
+      },
+      "description": "Diverts a cleaning river through the working tree: sweeps debug prints, silenced linters, and scratch files before you commit."
+    }
+  ]
+}

@@ -42,8 +42,7 @@ byte-for-byte restoration anytime.
 <a id="status"></a>
 
 > **Status:** pre-release. Alpheus is **not yet published to npm**, so it installs from this
-> repository or from the Aranea marketplace: see [Install](#install). It requires
-> [Bun](https://bun.sh/) 1.1 or newer and Git.
+> repository: see [Install](#install). It requires [Bun](https://bun.sh/) 1.1 or newer and Git.
 
 ---
 
@@ -150,6 +149,15 @@ Alpheus integrates into Claude Code as a native plugin:
 2. **Slash Command:** Type `/alpheus` in Claude Code to inspect your working tree for miasma and
    receive a structured breakdown.
 
+Install the plugin from this repository (it is not yet part of the Aranea marketplace):
+
+```bash
+claude plugin marketplace add AraneaDev/alpheus
+claude plugin install alpheus@alpheus
+```
+
+Hooks bind when a session starts, so start a new session after installing.
+
 ---
 
 ## What it does not do
@@ -166,11 +174,19 @@ Alpheus integrates into Claude Code as a native plugin:
 
 ## Installation
 
+Alpheus is not yet on npm or in the Aranea marketplace, so the CLI installs from this
+repository.
+
 ### From a release
 
+<!-- x-release-please-start-version -->
 ```bash
-bun install -g github:AraneaDev/alpheus
+bun install -g github:AraneaDev/alpheus#v0.1.1
 ```
+<!-- x-release-please-end -->
+
+Every published version is listed on the
+[releases page](https://github.com/AraneaDev/alpheus/releases).
 
 ### From source
 
