@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdirSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import { handlePreTool } from '../src/hooks/pre-tool-use.ts'
+import { handlePreTool, main, readAll } from '../src/hooks/pre-tool-use.ts'
+
+async function* toAsyncIterable(chunks: Uint8Array[]): AsyncIterable<Uint8Array> {
+  for (const chunk of chunks) yield chunk
+}
 
 const DIR = join('/tmp', `alpheus-hook-test-${Date.now()}`)
 
@@ -9,16 +13,20 @@ async function gitAdd(cwd: string, path: string): Promise<void> {
   await Bun.spawn(['git', 'add', path], { cwd, stdout: 'pipe', stderr: 'pipe' }).exited
 }
 
+async function initRepo(dir: string): Promise<void> {
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(dir, { recursive: true })
+  await Bun.spawn(['git', 'init'], { cwd: dir, stdout: 'pipe', stderr: 'pipe' }).exited
+  await Bun.spawn(['git', 'config', 'user.name', 'Tester'], { cwd: dir }).exited
+  await Bun.spawn(['git', 'config', 'user.email', 'tester@example.com'], { cwd: dir }).exited
+  writeFileSync(join(dir, 'base.txt'), 'base content\n')
+  await Bun.spawn(['git', 'add', '.'], { cwd: dir }).exited
+  await Bun.spawn(['git', 'commit', '-m', 'initial'], { cwd: dir, stdout: 'pipe', stderr: 'pipe' }).exited
+}
+
 describe('handlePreTool', () => {
   beforeEach(async () => {
-    rmSync(DIR, { recursive: true, force: true })
-    mkdirSync(DIR, { recursive: true })
-    await Bun.spawn(['git', 'init'], { cwd: DIR, stdout: 'pipe', stderr: 'pipe' }).exited
-    await Bun.spawn(['git', 'config', 'user.name', 'Tester'], { cwd: DIR }).exited
-    await Bun.spawn(['git', 'config', 'user.email', 'tester@example.com'], { cwd: DIR }).exited
-    writeFileSync(join(DIR, 'base.txt'), 'base content\n')
-    await Bun.spawn(['git', 'add', '.'], { cwd: DIR }).exited
-    await Bun.spawn(['git', 'commit', '-m', 'initial'], { cwd: DIR, stdout: 'pipe', stderr: 'pipe' }).exited
+    await initRepo(DIR)
   })
 
   afterEach(() => {
@@ -86,5 +94,50 @@ describe('handlePreTool', () => {
 
     expect(result.exitCode).toBe(0)
     expect(result.message).toBe('')
+  })
+})
+
+describe('readAll', () => {
+  it('returns an empty string for empty input', async () => {
+    expect(await readAll(toAsyncIterable([]))).toBe('')
+  })
+
+  it('concatenates multiple chunks, including ones split mid-character', async () => {
+    const encoder = new TextEncoder()
+    const chunks = [encoder.encode('{"a":'), encoder.encode('1}')]
+
+    expect(await readAll(toAsyncIterable(chunks))).toBe('{"a":1}')
+  })
+})
+
+describe('main', () => {
+  beforeEach(async () => {
+    await initRepo(DIR)
+  })
+
+  afterEach(() => {
+    rmSync(DIR, { recursive: true, force: true })
+  })
+
+  it('reads an empty stream and defers to handlePreTool, which exits 0', async () => {
+    const result = await main(toAsyncIterable([]), DIR)
+
+    expect(result.exitCode).toBe(0)
+    expect(result.message).toBe('')
+  })
+
+  it('reads a multi-chunk stream carrying a blocking commit', async () => {
+    writeFileSync(join(DIR, 'app.ts'), 'const a = 1\nconsole.log(a)\n')
+    await gitAdd(DIR, 'app.ts')
+
+    const encoder = new TextEncoder()
+    const payload = JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git commit -m "x"' }, cwd: DIR })
+    const mid = Math.floor(payload.length / 2)
+    const chunks = [encoder.encode(payload.slice(0, mid)), encoder.encode(payload.slice(mid))]
+
+    const result = await main(toAsyncIterable(chunks), '/nonexistent')
+
+    expect(result.exitCode).toBe(2)
+    expect(result.message).toContain('app.ts')
   })
 })

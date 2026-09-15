@@ -52,16 +52,47 @@ export async function handlePreTool(
   }
 }
 
-async function main(): Promise<void> {
+/**
+ * Accumulates an async byte stream into a single decoded string.
+ *
+ * Extracted so the entry point's stdin handling can be exercised with a fake
+ * async iterable in tests, rather than only ever covered by piping real stdin.
+ *
+ * @param stream - The chunks to decode and concatenate, in order.
+ * @returns The concatenated, decoded text.
+ */
+export async function readAll(stream: AsyncIterable<Uint8Array>): Promise<string> {
+  const decoder = new TextDecoder()
   let raw = ''
-  for await (const chunk of Bun.stdin.stream()) {
-    raw += new TextDecoder().decode(chunk)
+  for await (const chunk of stream) {
+    raw += decoder.decode(chunk, { stream: true })
   }
+  raw += decoder.decode()
+  return raw
+}
 
-  const { exitCode, message } = await handlePreTool(raw, process.cwd())
+/**
+ * Reads the payload from a stdin stream and runs it through `handlePreTool`.
+ *
+ * Takes the stdin stream and fallback cwd as parameters, rather than reading
+ * `Bun.stdin`/`process.cwd()` itself, so the entry point's wiring is covered by
+ * a test with a fake stream instead of only ever running for real. It applies
+ * no process side effects itself; the `import.meta.main` guard below does.
+ *
+ * @param stdin - The stdin stream to read the payload from.
+ * @param cwd - Fallback working directory when the payload carries none.
+ * @returns The exit code to use and the message to write to stderr.
+ */
+export async function main(
+  stdin: AsyncIterable<Uint8Array>,
+  cwd: string,
+): Promise<{ exitCode: number; message: string }> {
+  const raw = await readAll(stdin)
+  return handlePreTool(raw, cwd)
+}
 
+if (import.meta.main) {
+  const { exitCode, message } = await main(Bun.stdin.stream(), process.cwd())
   if (message) console.error(message)
   process.exitCode = exitCode
 }
-
-main()
