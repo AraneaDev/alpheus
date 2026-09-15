@@ -102,6 +102,23 @@ describe('removeRanges', () => {
     expect(out).toBe(raw)
   })
 
+  it('ignores a range with startLine 0 instead of deleting the last line', () => {
+    // startLine: 0 makes `start` (startLine - 1) equal -1. Without the
+    // `start < 0` guard, `out.splice(-1, count)` would silently delete the
+    // *last* line of the file, since a negative index to splice counts back
+    // from the end. Assert the full string, not just its length, so a
+    // wrong-line deletion can't slip past.
+    const raw = 'a\nb\nc\n'
+    const out = joinLines(removeRanges(splitLines(raw), [{ startLine: 0, endLine: 0 }]))
+    expect(out).toBe(raw)
+  })
+
+  it('ignores a range with a negative startLine instead of deleting from the end', () => {
+    const raw = 'a\nb\nc\n'
+    const out = joinLines(removeRanges(splitLines(raw), [{ startLine: -5, endLine: -5 }]))
+    expect(out).toBe(raw)
+  })
+
   it('treats two adjacent single-line ranges as one gap for blank tidying', () => {
     // Lines 2 and 3 are adjacent but given as separate, non-overlapping
     // ranges. Removing both should still collapse the blank left above and
