@@ -40,6 +40,7 @@ Flags:
   --json                       Output structured JSON (check mode)
   --quiet                      Suppress output (check mode)
   --dry-run                    Simulate changes without modifying files (clean mode)
+  --force                      Restore even over files edited since the purge (restore mode)
 `)
 }
 
@@ -119,9 +120,10 @@ export async function main(
   }
 
   if (command === 'restore') {
-    const targetId = args[1]
+    const targetId = args[1] && !args[1].startsWith('--') ? args[1] : undefined
+    const force = args.includes('--force')
     try {
-      const restored = await restoreBackup(cwd, targetId)
+      const restored = await restoreBackup(cwd, targetId, { force })
       console.log(`Successfully restored ${restored.length} files from backup:`)
       for (const f of restored) {
         console.log(`  - ${f}`)

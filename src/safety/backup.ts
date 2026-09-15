@@ -100,6 +100,26 @@ export async function createSafetyBackup(cwd: string, items: MiasmaItem[]): Prom
 }
 
 /**
+ * Rewrites a manifest after mutation, recording each file's resulting hash.
+ *
+ * `sha256After` is what lets a restore tell an untouched file from one the
+ * author has since worked on. Without it a restore is an unconditional
+ * overwrite of whatever is on disk.
+ *
+ * @param cwd - Repository root directory.
+ * @param manifest - The manifest created before mutation.
+ */
+export function finalizeSafetyBackup(cwd: string, manifest: BackupManifest): void {
+  for (const file of manifest.files) {
+    const absPath = join(cwd, file.originalPath)
+    file.sha256After = existsSync(absPath) ? computeSha256(readFileSync(absPath)) : undefined
+  }
+
+  const manifestPath = join(cwd, '.alpheus/backups', manifest.id, 'manifest.json')
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
+}
+
+/**
  * Lists all existing backups in the repository, sorted newest first.
  *
  * @param cwd - Repository root directory.

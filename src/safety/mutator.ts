@@ -4,7 +4,7 @@ import type { AnchoredItem } from '../engine/anchor.ts'
 import { anchorFindings } from '../engine/anchor.ts'
 import type { BackupManifest, MiasmaItem, PurgeSummary } from '../scanner/types.ts'
 import { writeFileAtomic } from './atomic.ts'
-import { createSafetyBackup } from './backup.ts'
+import { createSafetyBackup, finalizeSafetyBackup } from './backup.ts'
 import type { LineRange, PhysicalLine } from './lines.ts'
 import { joinLines, planRemoval, splitLines } from './lines.ts'
 
@@ -132,6 +132,10 @@ export async function purgeMiasma(
     }
 
     modifiedFiles.push({ path: relPath, purgedLineCount: removedLineNumbers.size })
+  }
+
+  if (!options?.dryRun && manifest) {
+    finalizeSafetyBackup(cwd, manifest)
   }
 
   return { backupId, backupPath, modifiedFiles, unlinkedFiles, unverifiable: unverifiableReport }
