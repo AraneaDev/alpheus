@@ -14,7 +14,6 @@ async function gitAddAll(cwd: string): Promise<void> {
 }
 
 describe('CLI Commands Dispatching', () => {
-  const originalCwd = process.cwd()
   const tmpDir = join('/tmp', `alpheus-cli-test-${Date.now()}`)
 
   beforeEach(async () => {
@@ -31,22 +30,19 @@ describe('CLI Commands Dispatching', () => {
     await addProc.exited
     const commitProc = Bun.spawn(['git', 'commit', '-m', 'init'], { cwd: tmpDir })
     await commitProc.exited
-
-    process.chdir(tmpDir)
   })
 
   afterEach(() => {
-    process.chdir(originalCwd)
     rmSync(tmpDir, { recursive: true, force: true })
   })
 
   it('should handle help command and return 0', async () => {
-    const code = await main(['help'])
+    const code = await main(['help'], tmpDir)
     expect(code).toBe(0)
   })
 
   it('should handle default no-arg invocation in non-TTY mode and return 0 for clean repo', async () => {
-    const code = await main([])
+    const code = await main([], tmpDir)
     expect(code).toBe(0)
   })
 
@@ -54,7 +50,7 @@ describe('CLI Commands Dispatching', () => {
     const originalIsTTY = process.stdin.isTTY
     try {
       Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true })
-      const code = await main(['demo'])
+      const code = await main(['demo'], tmpDir)
       expect(code).toBe(0)
     } finally {
       Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true })
@@ -66,7 +62,7 @@ describe('CLI Commands Dispatching', () => {
     const originalIsTTY = process.stdin.isTTY
     try {
       Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true })
-      const code = await main([])
+      const code = await main([], tmpDir)
       expect(code).toBe(1)
     } finally {
       Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true })
@@ -74,25 +70,25 @@ describe('CLI Commands Dispatching', () => {
   })
 
   it('should return 0 for check in a clean repository', async () => {
-    const code = await main(['check'])
+    const code = await main(['check'], tmpDir)
     expect(code).toBe(0)
   })
 
   it('should return 0 for check with --json and --quiet flags', async () => {
-    const codeJson = await main(['check', '--json'])
+    const codeJson = await main(['check', '--json'], tmpDir)
     expect(codeJson).toBe(0)
 
-    const codeQuiet = await main(['check', '--quiet'])
+    const codeQuiet = await main(['check', '--quiet'], tmpDir)
     expect(codeQuiet).toBe(0)
   })
 
   it('should return 0 for clean in a clean repository', async () => {
-    const code = await main(['clean'])
+    const code = await main(['clean'], tmpDir)
     expect(code).toBe(0)
   })
 
   it('should return 0 for backups when no backups exist', async () => {
-    const code = await main(['backups'])
+    const code = await main(['backups'], tmpDir)
     expect(code).toBe(0)
   })
 
@@ -107,7 +103,7 @@ describe('CLI Commands Dispatching', () => {
   })
 
   it('should return 2 for restore with nonexistent snapshot', async () => {
-    const code = await main(['restore', 'missing_id_1234'])
+    const code = await main(['restore', 'missing_id_1234'], tmpDir)
     expect(code).toBe(2)
   })
 
@@ -117,31 +113,31 @@ describe('CLI Commands Dispatching', () => {
     writeFileSync(join(tmpDir, 'temp.scratch.json'), '{"scratch": true}\n')
 
     // 1. check detects miasma -> exit 1
-    const checkCode = await main(['check'])
+    const checkCode = await main(['check'], tmpDir)
     expect(checkCode).toBe(1)
 
     // 2. clean --dry-run
-    const dryRunCode = await main(['clean', '--dry-run'])
+    const dryRunCode = await main(['clean', '--dry-run'], tmpDir)
     expect(dryRunCode).toBe(0)
 
     // 3. clean
-    const cleanCode = await main(['clean'])
+    const cleanCode = await main(['clean'], tmpDir)
     expect(cleanCode).toBe(0)
 
     // 4. verify clean state after purge
-    const checkAfterClean = await main(['check'])
+    const checkAfterClean = await main(['check'], tmpDir)
     expect(checkAfterClean).toBe(0)
 
     // 5. list backups
-    const backupsCode = await main(['backups'])
+    const backupsCode = await main(['backups'], tmpDir)
     expect(backupsCode).toBe(0)
 
     // 6. restore
-    const restoreCode = await main(['restore'])
+    const restoreCode = await main(['restore'], tmpDir)
     expect(restoreCode).toBe(0)
 
     // 7. verify items returned after restore
-    const checkAfterRestore = await main(['check'])
+    const checkAfterRestore = await main(['check'], tmpDir)
     expect(checkAfterRestore).toBe(1)
   })
 
