@@ -84,7 +84,9 @@ export async function purgeMiasma(
 
   let manifest: BackupManifest | undefined
   let backupId = 'dry-run'
-  let backupPath = 'none'
+  // Empty, not a placeholder word, so no caller can print a path for a
+  // backup that was never created (dry run, skipBackup, or nothing anchored).
+  let backupPath = ''
 
   if (!options?.dryRun && !options?.skipBackup && anchored.length > 0) {
     manifest = await createSafetyBackup(

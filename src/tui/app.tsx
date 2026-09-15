@@ -88,9 +88,15 @@ export const App: React.FC<AppProps> = ({
           const skipped = summary.unverifiable.length > 0
             ? ` ${summary.unverifiable.length} could not be verified and were left alone.`
             : ''
+          const purgedLines = summary.modifiedFiles.reduce((n, f) => n + f.purgedLineCount, 0)
+          const backupNote = summary.backupPath
+            ? ` Backup: ${summary.backupPath}`
+            : summary.backupId === 'demo'
+              ? ' Demo mode: nothing was written.'
+              : ' No changes were made.'
 
           setStatusMessage(
-            `Purged ${summary.modifiedFiles.reduce((n, f) => n + f.purgedLineCount, 0)} lines across ${summary.modifiedFiles.length} files.${skipped} Backup: ${summary.backupPath}`,
+            `Purged ${purgedLines} lines across ${summary.modifiedFiles.length} files.${skipped}${backupNote}`,
           )
           setTimeout(() => {
             exit()
@@ -227,8 +233,10 @@ export async function runTui(
       }
       if (lastSummary.backupPath) {
         console.log(`Backup saved to ${lastSummary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
-      } else {
+      } else if (lastSummary.backupId === 'demo') {
         console.log('Demo mode: nothing was written.')
+      } else {
+        console.log('Nothing was purged; no changes were made.')
       }
     }
     return code

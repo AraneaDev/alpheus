@@ -169,6 +169,30 @@ describe('CLI Commands Dispatching', () => {
     )
   })
 
+  it('does not claim a backup was saved when every finding was unverifiable', async () => {
+    // Same ambiguous-lines setup as above: nothing is anchored, so purgeMiasma
+    // creates no backup at all. A test that only checked the unverifiable
+    // block would still pass against the old code, which printed
+    // "Backup saved to none." here regardless.
+    writeFileSync(join(tmpDir, 'app.ts'), 'console.log(a)\nconst b = 2\nconsole.log(a)\n')
+    await gitAddAll(tmpDir)
+
+    const lines: string[] = []
+    const spy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      lines.push(String(msg))
+    })
+
+    const code = await main(['clean'], tmpDir)
+
+    spy.mockRestore()
+    const output = lines.join('\n')
+
+    expect(code).toBe(0)
+    expect(output).not.toContain('Backup saved')
+    expect(output).not.toContain('restore')
+    expect(output).toContain('Nothing was purged; no changes were made.')
+  })
+
   it('reports a finding whose recorded text is no longer in the file as "not-found"', async () => {
     // Stage one version of an added console.log line, then edit it again
     // without staging: the staged half of the diff still carries the old
@@ -283,6 +307,20 @@ describe('CLI Commands Dispatching', () => {
   it('rejects an unknown command instead of launching the TUI', async () => {
     const code = await main(['clena'], tmpDir)
     expect(code).toBe(2)
+  })
+
+  it('treats a bare leading flag as no command, reaching the fallback rather than being rejected', async () => {
+    // `command` is '--json' here, which starts with '-': the unknown-command
+    // guard must not reject it, so this falls through to the same non-TTY
+    // fallback as `main([])`.
+    const originalIsTTY = process.stdin.isTTY
+    try {
+      Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true })
+      const code = await main(['--json'], tmpDir)
+      expect(code).toBe(0)
+    } finally {
+      Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true })
+    }
   })
 
   it('accepts --json for clean, not only for check', async () => {

@@ -119,7 +119,7 @@ describe('In-Place File Mutator', () => {
 
     const summary = await purgeMiasma(TEST_DIR, items, { dryRun: true })
     expect(summary.backupId).toBe('dry-run')
-    expect(summary.backupPath).toBe('none')
+    expect(summary.backupPath).toBe('')
     expect(summary.modifiedFiles.length).toBe(1)
     expect(readFileSync(join(TEST_DIR, 'src/dry.ts'), 'utf-8')).toBe(fileContent)
     expect(existsSync(join(TEST_DIR, '.alpheus/backups'))).toBe(false)

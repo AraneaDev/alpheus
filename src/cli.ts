@@ -151,7 +151,11 @@ export async function main(
           if (summary.unlinkedFiles.length > 0) {
             console.log(`Deleted ${summary.unlinkedFiles.length} scratch files: ${summary.unlinkedFiles.join(', ')}`)
           }
-          console.log(`Backup saved to ${summary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
+          if (summary.backupPath) {
+            console.log(`Backup saved to ${summary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
+          } else {
+            console.log('Nothing was purged; no changes were made.')
+          }
         }
 
         if (summary.unverifiable.length > 0) {
