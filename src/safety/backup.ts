@@ -1,5 +1,5 @@
 import { createHash } from 'crypto'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import type { BackupManifest, BackupManifestFile, MiasmaItem } from '../scanner/types.ts'
 
@@ -22,19 +22,26 @@ function generateSnapshotId(): string {
 }
 
 /**
- * Appends `.alpheus/` to `.git/info/exclude` if git repository exists.
+ * Appends `.alpheus/` to `.git/info/exclude`, creating `.git/info` if needed.
+ *
+ * @param cwd - Repository root directory.
  */
 function ensureGitExclude(cwd: string): void {
-  const excludePath = join(cwd, '.git/info/exclude')
-  if (existsSync(join(cwd, '.git')) && existsSync(excludePath)) {
-    try {
-      const content = readFileSync(excludePath, 'utf-8')
-      if (!content.includes('.alpheus')) {
-        writeFileSync(excludePath, `${content.trimEnd()}\n.alpheus/\n`)
-      }
-    } catch {
-      // Ignore if permission denied or non-standard git config
+  const gitPath = join(cwd, '.git')
+  if (!existsSync(gitPath)) return
+
+  const infoDir = join(cwd, '.git/info')
+  const excludePath = join(infoDir, 'exclude')
+
+  try {
+    mkdirSync(infoDir, { recursive: true })
+    const content = existsSync(excludePath) ? readFileSync(excludePath, 'utf-8') : ''
+    if (!content.includes('.alpheus')) {
+      writeFileSync(excludePath, `${content.trimEnd()}\n.alpheus/\n`.trimStart())
     }
+  } catch {
+    // A linked worktree keeps its git directory elsewhere, and the path may be
+    // read-only. Failing to exclude is not worth failing a purge over.
   }
 }
 
@@ -46,9 +53,25 @@ function ensureGitExclude(cwd: string): void {
  * @returns The created BackupManifest.
  */
 export async function createSafetyBackup(cwd: string, items: MiasmaItem[]): Promise<BackupManifest> {
-  const snapshotId = generateSnapshotId()
-  const backupDir = join(cwd, '.alpheus/backups', snapshotId)
-  mkdirSync(backupDir, { recursive: true })
+  const backupsRoot = join(cwd, '.alpheus/backups')
+  mkdirSync(backupsRoot, { recursive: true })
+
+  let snapshotId = generateSnapshotId()
+  let backupDir = join(backupsRoot, snapshotId)
+
+  // A non-recursive mkdir on the leaf throws EEXIST rather than silently
+  // adopting a directory another purge is already writing into.
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      mkdirSync(backupDir)
+      break
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST' || attempt === 9) throw err
+      snapshotId = generateSnapshotId()
+      backupDir = join(backupsRoot, snapshotId)
+    }
+  }
+
   ensureGitExclude(cwd)
 
   // Deduplicate files
@@ -96,7 +119,25 @@ export async function createSafetyBackup(cwd: string, items: MiasmaItem[]): Prom
 
   writeFileSync(join(backupDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8')
 
+  await pruneBackups(cwd)
+
   return manifest
+}
+
+/** How many snapshots to keep. Becomes configurable in 0.3.0. */
+const RETAIN_SNAPSHOTS = 20
+
+/**
+ * Deletes all but the most recent snapshots.
+ *
+ * @param cwd - Repository root directory.
+ */
+async function pruneBackups(cwd: string): Promise<void> {
+  const manifests = await listBackups(cwd)
+
+  for (const stale of manifests.slice(RETAIN_SNAPSHOTS)) {
+    rmSync(join(cwd, '.alpheus/backups', stale.id), { recursive: true, force: true })
+  }
 }
 
 /**
