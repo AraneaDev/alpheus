@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.2](https://github.com/AraneaDev/alpheus/compare/v0.1.1...v0.1.2) (2026-09-15)
+
+
+### Fixes
+
+* **docs:** correct README install instructions ([#6](https://github.com/AraneaDev/alpheus/issues/6)) ([4d05162](https://github.com/AraneaDev/alpheus/commit/4d0516222f2044a56401a256c781e64ee4e5f59c))
+* **docs:** restore full ANSI color palette in TUI screenshot ([#4](https://github.com/AraneaDev/alpheus/issues/4)) ([9f80f33](https://github.com/AraneaDev/alpheus/commit/9f80f33ecbe14386c9e608e396849524c81e8ed7))
+
+
+### Documentation
+
+* **readme:** bring the README in line with the other Aranea plugins ([#7](https://github.com/AraneaDev/alpheus/issues/7)) ([3130232](https://github.com/AraneaDev/alpheus/commit/3130232aee7be5ff9c7f237a4f6d82b36fa6d808))
+
 ## [0.1.1](https://github.com/AraneaDev/alpheus/compare/v0.1.0...v0.1.1) (2026-09-14)
 
 
