@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/AraneaDev/alpheus/compare/v0.1.2...v0.1.3) (2026-09-15)
+
+
+### Fixes
+
+* **cli:** drop --all from clean, and pin plugin.json to the release ([#8](https://github.com/AraneaDev/alpheus/issues/8)) ([67d0c99](https://github.com/AraneaDev/alpheus/commit/67d0c99f0033005753e32a98e8e6373aac4e082f))
+
 ## [0.1.2](https://github.com/AraneaDev/alpheus/compare/v0.1.1...v0.1.2) (2026-09-15)
 
 
