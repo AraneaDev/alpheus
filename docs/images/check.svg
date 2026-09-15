@@ -18,5 +18,5 @@
   <text x="28.5" y="337.0" fill="#c678dd" xml:space="preserve">[SCRATCH]</text>
   <text x="113.5" y="337.0" fill="#b8c0cb" xml:space="preserve">(1)</text>
   <text x="45.5" y="356.0" fill="#b8c0cb" xml:space="preserve">temp.scratch.json                   temp.scratch.json — Untracked scratch or temporary file</text>
-  <text x="20.0" y="394.0" fill="#b8c0cb" xml:space="preserve">Run `alpheus` to interactively purge, or `alpheus clean --all` to batch purge with automatic backup.</text>
+  <text x="20.0" y="394.0" fill="#b8c0cb" xml:space="preserve">Run `alpheus` to interactively purge, or `alpheus clean` to batch purge with automatic backup.</text>
 </svg>

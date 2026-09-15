@@ -15,7 +15,7 @@ Alpheus — Sweeps the agent's debris before you commit.
 Usage:
   alpheus                      Launch interactive TUI to review & purge miasma
   alpheus check [flags]        Non-interactive scan; exit 1 if miasma found (for CI/hooks)
-  alpheus clean --all [flags]  Batch purge all detected miasma with automatic backup
+  alpheus clean [flags]        Batch purge all detected miasma with automatic backup
   alpheus restore [id]         Restore working tree from backup snapshot (default: latest)
   alpheus backups              List existing backup snapshots
   alpheus demo                 Launch interactive TUI with simulated findings

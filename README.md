@@ -84,7 +84,7 @@ the same way twice.
 ```text
 alpheus                      Interactive review and purge
 alpheus check [flags]        Non-interactive scan; exits 1 when it finds anything
-alpheus clean --all [flags]  Purge everything found, with a backup
+alpheus clean [flags]        Purge everything found, with a backup
 alpheus restore [id]         Restore the working tree from a snapshot (default: the latest)
 alpheus backups              List the snapshots there are
 alpheus demo                 The interactive review, with made-up findings

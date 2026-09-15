@@ -30,6 +30,6 @@ export function formatTable(items: MiasmaItem[]): string {
     out.push('')
   }
 
-  out.push('Run `alpheus` to interactively purge, or `alpheus clean --all` to batch purge with automatic backup.')
+  out.push('Run `alpheus` to interactively purge, or `alpheus clean` to batch purge with automatic backup.')
   return out.join('\n')
 }

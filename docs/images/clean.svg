@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="849" height="135" viewBox="0 0 849 135" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
   <rect width="849" height="135" rx="8" fill="#10151d"/>
   <line x1="20" y1="44" x2="829" y2="44" stroke="#26303d" stroke-width="1"/>
-  <text x="20" y="33" fill="#63707f">$ </text><text x="37" y="33" fill="#ece5d5" font-weight="600">alpheus clean --all</text>
+  <text x="20" y="33" fill="#63707f">$ </text><text x="37" y="33" fill="#ece5d5" font-weight="600">alpheus clean</text>
   <text x="20.0" y="71.0" fill="#7fb3a3" xml:space="preserve">Alpheus purged 4 items across 3 files.</text>
   <text x="20.0" y="90.0" fill="#b8c0cb" xml:space="preserve">Deleted 1 scratch files: temp.scratch.json</text>
   <text x="20.0" y="109.0" fill="#b8c0cb" xml:space="preserve">Backup saved to</text>

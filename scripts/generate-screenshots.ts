@@ -359,7 +359,7 @@ async function main() {
     ' \x1b[35m[SCRATCH]\x1b[0m (1)',
     '   temp.scratch.json                   temp.scratch.json — Untracked scratch or temporary file',
     '',
-    'Run `alpheus` to interactively purge, or `alpheus clean --all` to batch purge with automatic backup.',
+    'Run `alpheus` to interactively purge, or `alpheus clean` to batch purge with automatic backup.',
   ]
 
   const checkSvg = generateCard(checkLines, 'alpheus check')
@@ -373,7 +373,7 @@ async function main() {
     'Backup saved to \x1b[36m.alpheus/backups/20260914_174539_0f78\x1b[0m. (Restore anytime via `alpheus restore`)',
   ]
 
-  const cleanSvg = generateCard(cleanLines, 'alpheus clean --all')
+  const cleanSvg = generateCard(cleanLines, 'alpheus clean')
   writeFileSync('docs/images/clean.svg', cleanSvg)
   console.log('[ok] Wrote docs/images/clean.svg')
 }
