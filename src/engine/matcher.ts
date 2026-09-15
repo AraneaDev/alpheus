@@ -2,11 +2,42 @@ import type { DiffHunk, MiasmaItem } from '../scanner/types.ts'
 import { scanGitDiff, scanUntrackedFiles } from '../scanner/git.ts'
 import { detectLanguage } from './language.ts'
 import { makeFindingId } from './identity.ts'
-import { matchLogMiasma } from './rules/log.ts'
-import { matchSuppressMiasma } from './rules/suppress.ts'
-import { matchPathMiasma } from './rules/path.ts'
 import { matchScratchFile } from './rules/scratch.ts'
-import { matchTombstoneBlocks } from './rules/tombstone.ts'
+import { RULES } from './rules/registry.ts'
+import type { MatchContext, Rule, RuleMatch } from './rules/types.ts'
+
+/**
+ * Turns a rule's match into a finding, pulling the span's exact text out of the hunk.
+ *
+ * @param rule - The rule that fired.
+ * @param match - The range it objected to.
+ * @param filePath - Repository-relative path to the file.
+ * @param byLineNumber - The hunk's added lines, keyed by line number.
+ * @returns The finding.
+ */
+function toItem(
+  rule: Rule,
+  match: RuleMatch,
+  filePath: string,
+  byLineNumber: Map<number, string>,
+): MiasmaItem {
+  const lines: string[] = []
+
+  for (let l = match.startLine; l <= match.endLine; l++) {
+    const content = byLineNumber.get(l)
+    if (content !== undefined) lines.push(content)
+  }
+
+  return {
+    id: makeFindingId(rule.category, filePath, match.startLine, lines),
+    filePath,
+    category: rule.category,
+    ruleId: rule.id,
+    span: { startLine: match.startLine, endLine: match.endLine, lines },
+    explanation: match.explanation,
+    confidence: match.confidence,
+  }
+}
 
 /**
  * Evaluates diff hunks and extracts line-level and block-level miasma items.
@@ -19,80 +50,35 @@ export function evaluateHunks(hunks: DiffHunk[]): MiasmaItem[] {
 
   for (const hunk of hunks) {
     const lang = detectLanguage(hunk.filePath)
+    const ctx: MatchContext = { filePath: hunk.filePath, lang, lines: hunk.lines }
+    const byLineNumber = new Map(hunk.lines.map((l) => [l.lineNumber, l.content]))
 
-    // 1. Check for tombstone code blocks
-    const tombstones = matchTombstoneBlocks(hunk.lines, lang)
-    const tombstoneLineRanges = new Set<number>()
+    // SCRATCH rules judge a whole untracked file path, not a diff hunk; they
+    // run only from `evaluateUntracked`, so a hunk never applies them.
+    const applicable = RULES.filter(
+      (rule) =>
+        rule.category !== 'SCRATCH' &&
+        (rule.languages === 'any' || rule.languages.includes(lang)),
+    )
 
-    for (const ts of tombstones) {
-      const blockLines: string[] = []
+    // Block rules run first so their lines can be withheld from line rules: a
+    // commented-out console.log inside a dead block is one finding, not two.
+    const blockRules = applicable.filter((r) => r.category === 'TOMBSTONE')
+    const lineRules = applicable.filter((r) => r.category !== 'TOMBSTONE')
+    const covered = new Set<number>()
 
-      for (let l = ts.startLine; l <= ts.endLine; l++) {
-        tombstoneLineRanges.add(l)
-        const found = hunk.lines.find((hl) => hl.lineNumber === l)
-        if (found) blockLines.push(found.content)
+    for (const rule of blockRules) {
+      for (const match of rule.match(ctx)) {
+        for (let l = match.startLine; l <= match.endLine; l++) covered.add(l)
+        items.push(toItem(rule, match, hunk.filePath, byLineNumber))
       }
-
-      items.push({
-        id: makeFindingId('TOMBSTONE', hunk.filePath, ts.startLine, blockLines),
-        filePath: hunk.filePath,
-        category: 'TOMBSTONE',
-        ruleId: 'tombstone/block',
-        span: { startLine: ts.startLine, endLine: ts.endLine, lines: blockLines },
-        explanation: ts.explanation,
-        confidence: 0.9,
-      })
     }
 
-    // 2. Check individual added lines
-    for (const line of hunk.lines) {
-      // Skip lines that are already part of a tombstone block
-      if (tombstoneLineRanges.has(line.lineNumber)) {
-        continue
-      }
+    const visible = { ...ctx, lines: hunk.lines.filter((l) => !covered.has(l.lineNumber)) }
 
-      // Check [LOG]
-      const logMatch = matchLogMiasma(line.content, lang)
-      if (logMatch) {
-        items.push({
-          id: makeFindingId('LOG', hunk.filePath, line.lineNumber, [line.content]),
-          filePath: hunk.filePath,
-          category: 'LOG',
-          ruleId: `log/${lang}`,
-          span: { startLine: line.lineNumber, endLine: line.lineNumber, lines: [line.content] },
-          explanation: logMatch,
-          confidence: 1.0,
-        })
-        continue
-      }
-
-      // Check [SUPPRESS]
-      const suppressMatch = matchSuppressMiasma(line.content, lang)
-      if (suppressMatch) {
-        items.push({
-          id: makeFindingId('SUPPRESS', hunk.filePath, line.lineNumber, [line.content]),
-          filePath: hunk.filePath,
-          category: 'SUPPRESS',
-          ruleId: `suppress/${lang}`,
-          span: { startLine: line.lineNumber, endLine: line.lineNumber, lines: [line.content] },
-          explanation: suppressMatch,
-          confidence: 1.0,
-        })
-        continue
-      }
-
-      // Check [PATH]
-      const pathMatch = matchPathMiasma(line.content)
-      if (pathMatch) {
-        items.push({
-          id: makeFindingId('PATH', hunk.filePath, line.lineNumber, [line.content]),
-          filePath: hunk.filePath,
-          category: 'PATH',
-          ruleId: `path/${lang}`,
-          span: { startLine: line.lineNumber, endLine: line.lineNumber, lines: [line.content] },
-          explanation: pathMatch,
-          confidence: 0.95,
-        })
+    for (const rule of lineRules) {
+      for (const match of rule.match(visible)) {
+        items.push(toItem(rule, match, hunk.filePath, byLineNumber))
       }
     }
   }

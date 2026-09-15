@@ -1,4 +1,5 @@
 import type { SupportedLanguage } from '../language.ts'
+import type { MatchContext, Rule, RuleMatch } from './types.ts'
 
 /**
  * A detected block of commented-out dead code.
@@ -85,3 +86,26 @@ export function matchTombstoneBlocks(
   flushBlock()
   return blocks
 }
+
+/**
+ * Commented-out dead code left behind instead of deleted.
+ *
+ * A single block rule: `matchTombstoneBlocks` scans a contiguous run of
+ * lines rather than one line at a time, so it stays a block-level rule
+ * regardless of language.
+ */
+export const tombstoneRules: Rule[] = [
+  {
+    id: 'tombstone/block',
+    category: 'TOMBSTONE',
+    languages: 'any',
+    match(ctx: MatchContext): RuleMatch[] {
+      return matchTombstoneBlocks(ctx.lines, ctx.lang).map((block) => ({
+        startLine: block.startLine,
+        endLine: block.endLine,
+        explanation: block.explanation,
+        confidence: 0.9,
+      }))
+    },
+  },
+]
