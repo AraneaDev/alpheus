@@ -186,7 +186,7 @@ Alpheus is not on npm. The CLI installs from this repository, with or without Cl
 
 <!-- x-release-please-start-version -->
 ```bash
-bun install -g github:AraneaDev/alpheus#v0.1.3
+bun install -g github:AraneaDev/alpheus#v0.1.4
 ```
 <!-- x-release-please-end -->
 
