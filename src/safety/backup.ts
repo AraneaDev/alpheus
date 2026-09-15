@@ -136,7 +136,14 @@ async function pruneBackups(cwd: string): Promise<void> {
   const manifests = await listBackups(cwd)
 
   for (const stale of manifests.slice(RETAIN_SNAPSHOTS)) {
-    rmSync(join(cwd, '.alpheus/backups', stale.id), { recursive: true, force: true })
+    try {
+      rmSync(join(cwd, '.alpheus/backups', stale.id), { recursive: true, force: true })
+    } catch {
+      // Pruning runs before any file is mutated, so a locked or
+      // permission-denied old snapshot is housekeeping, not data loss.
+      // Losing the ability to tidy old snapshots must not cost the ability
+      // to purge at all, the same tolerance ensureGitExclude applies above.
+    }
   }
 }
 
