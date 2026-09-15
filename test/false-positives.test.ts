@@ -35,12 +35,38 @@ describe('false positive corpus', () => {
 
   it('finds nothing actionable in legitimate code', async () => {
     const items = await evaluateWorkingTree(DIR)
-    const { actionable } = partitionByConfidence(items, DEFAULT_MIN_CONFIDENCE)
+    const { actionable, review } = partitionByConfidence(items, DEFAULT_MIN_CONFIDENCE)
 
     const detail = actionable
       .map((i) => `${i.filePath}:${i.span?.startLine} [${i.ruleId}] ${i.explanation}`)
       .join('\n')
 
     expect(actionable, `unexpected findings:\n${detail}`).toHaveLength(0)
+
+    // An empty `actionable` array is also what a scan that never ran (a
+    // failed `git init`/`add`, or a fixture copy that silently missed)
+    // would produce, and the assertion above alone cannot tell "clean" apart
+    // from "never scanned." Pin the two review-tier findings this corpus is
+    // known to produce, by rule and confidence, so the test fails loudly if
+    // the scan came back empty instead of merely passing on nothing.
+    const reviewDetail = review.map((i) => `${i.filePath} [${i.ruleId}] conf=${i.confidence}`).join('\n')
+
+    const ciHomePath = review.find(
+      (i) => i.filePath.endsWith('ci.yml') && i.ruleId === 'path/posix-home',
+    )
+    expect(
+      ciHomePath,
+      `expected a path/posix-home review finding in ci.yml; findings seen:\n${reviewDetail}`,
+    ).toBeDefined()
+    expect(ciHomePath?.confidence).toBe(0.3)
+
+    const tsExpectError = review.find(
+      (i) => i.filePath.endsWith('safe.ts') && i.ruleId === 'suppress/ts',
+    )
+    expect(
+      tsExpectError,
+      `expected a suppress/ts review finding in safe.ts; findings seen:\n${reviewDetail}`,
+    ).toBeDefined()
+    expect(tsExpectError?.confidence).toBe(0.4)
   })
 })
