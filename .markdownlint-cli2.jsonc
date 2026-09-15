@@ -8,6 +8,7 @@
     "coverage",
     "docs/**",
     ".alpheus/**",
+    ".superpowers/**",
     "CHANGELOG.md"
   ],
   "config": {
