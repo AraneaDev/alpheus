@@ -82,8 +82,12 @@ export const App: React.FC<AppProps> = ({
 
       onPurge(chosen)
         .then((summary) => {
+          const skipped = summary.unverifiable.length > 0
+            ? ` ${summary.unverifiable.length} could not be verified and were left alone.`
+            : ''
+
           setStatusMessage(
-            `Purged ${chosen.length} items across ${summary.modifiedFiles.length} files. Backup: ${summary.backupPath}`,
+            `Purged ${summary.modifiedFiles.reduce((n, f) => n + f.purgedLineCount, 0)} lines across ${summary.modifiedFiles.length} files.${skipped} Backup: ${summary.backupPath}`,
           )
           setTimeout(() => {
             exit()

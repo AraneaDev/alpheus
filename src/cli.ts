@@ -87,6 +87,19 @@ export async function main(
         }
         console.log(`Backup saved to ${summary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
       }
+      if (summary.unverifiable.length > 0) {
+        console.log(`\nAlpheus could not verify ${summary.unverifiable.length} findings and left them alone:`)
+        for (const u of summary.unverifiable) {
+          const loc = u.startLine ? `${u.filePath}:${u.startLine}` : u.filePath
+          const why = u.reason === 'ambiguous'
+            ? 'the same text appears more than once'
+            : u.reason === 'missing-file'
+              ? 'the file is gone'
+              : 'the text has moved or been removed'
+          console.log(`  - ${loc} (${why})`)
+        }
+        console.log('Re-run `alpheus check` for a fresh scan.')
+      }
       return 0
     } catch (err: unknown) {
       console.error('Alpheus clean error:', err instanceof Error ? err.message : String(err))

@@ -1,7 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { mkdirSync, rmSync, writeFileSync } from 'fs'
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { main } from '../src/cli.ts'
+
+/**
+ * Stages every change in the given repository, so a brand-new file shows up
+ * in the staged half of `scanGitDiff` rather than being invisible to it.
+ *
+ * @param cwd - Repository working directory.
+ */
+async function gitAddAll(cwd: string): Promise<void> {
+  await Bun.spawn(['git', 'add', '-A'], { cwd }).exited
+}
 
 describe('CLI Commands Dispatching', () => {
   const originalCwd = process.cwd()
@@ -133,5 +143,29 @@ describe('CLI Commands Dispatching', () => {
     // 7. verify items returned after restore
     const checkAfterRestore = await main(['check'])
     expect(checkAfterRestore).toBe(1)
+  })
+
+  it('reports findings it could not verify rather than staying silent', async () => {
+    // Two identical log lines: the text is ambiguous, so neither can be anchored.
+    writeFileSync(join(tmpDir, 'app.ts'), 'console.log(a)\nconst b = 2\nconsole.log(a)\n')
+    await gitAddAll(tmpDir)
+
+    const lines: string[] = []
+    const spy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      lines.push(String(msg))
+    })
+
+    await main(['clean'], tmpDir)
+
+    spy.mockRestore()
+    const output = lines.join('\n')
+
+    expect(output).toContain('could not verify')
+    expect(output).toContain('app.ts')
+    expect(output).toContain('appears more than once')
+    // Nothing was touched.
+    expect(readFileSync(join(tmpDir, 'app.ts'), 'utf-8')).toBe(
+      'console.log(a)\nconst b = 2\nconsole.log(a)\n',
+    )
   })
 })
