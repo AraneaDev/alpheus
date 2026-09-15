@@ -68,7 +68,13 @@ export function matchLogMiasma(line: string, lang: SupportedLanguage): string | 
     }
 
     case 'php': {
-      if (isFunctionCall(/(?:var_dump|print_r|dump|dd)\s*\(/)) {
+      // Excludes `>` from the preceding character class so `->add(` and
+      // `->dump(` are not misread by the bare `dd`/`dump` substring; the
+      // arrow form is matched explicitly below instead.
+      if (isFunctionCall(/(?:^|[^a-zA-Z0-9_$>])(?:var_dump|print_r|dump|dd)\s*\(/)) {
+        return 'Ephemeral PHP dump function call'
+      }
+      if (isFunctionCall(/->\s*(?:dump|dd)\s*\(/)) {
         return 'Ephemeral PHP dump function call'
       }
       return null
@@ -137,48 +143,52 @@ export const logRules: Rule[] = [
     id: 'log/js-console',
     category: 'LOG',
     languages: ['typescript', 'javascript'],
-    match: logLineMatcher(1.0),
+    match: logLineMatcher(0.95),
   },
   {
     id: 'log/python-print',
     category: 'LOG',
     languages: ['python'],
-    match: logLineMatcher(1.0, ['Ephemeral Python print statement']),
+    match: logLineMatcher(0.9, ['Ephemeral Python print statement']),
   },
   {
     id: 'log/python-breakpoint',
     category: 'LOG',
     languages: ['python'],
-    match: logLineMatcher(1.0, ['Active Python debugger breakpoint']),
+    match: logLineMatcher(0.95, ['Active Python debugger breakpoint']),
   },
   {
+    // logging.debug() is the idiomatic, gated way to emit debug output in
+    // Python: unlike a bare print(), it is routinely committed on purpose and
+    // stays silent unless the log level is turned up, so it is less likely
+    // to be forgotten debris than actual debris.
     id: 'log/python-logging',
     category: 'LOG',
     languages: ['python'],
-    match: logLineMatcher(1.0, ['Temporary Python logging.debug call']),
+    match: logLineMatcher(0.5, ['Temporary Python logging.debug call']),
   },
   {
     id: 'log/rust-macro',
     category: 'LOG',
     languages: ['rust'],
-    match: logLineMatcher(1.0),
+    match: logLineMatcher(0.7),
   },
   {
     id: 'log/go-print',
     category: 'LOG',
     languages: ['go'],
-    match: logLineMatcher(1.0),
+    match: logLineMatcher(0.9),
   },
   {
     id: 'log/php-dump',
     category: 'LOG',
     languages: ['php'],
-    match: logLineMatcher(1.0),
+    match: logLineMatcher(0.9),
   },
   {
     id: 'log/shell-trace',
     category: 'LOG',
     languages: ['shell'],
-    match: logLineMatcher(1.0),
+    match: logLineMatcher(0.9),
   },
 ]

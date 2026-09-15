@@ -86,3 +86,21 @@ describe('Miasma Rule: [LOG]', () => {
     expect(matchLogMiasma('console.log("hi")', 'unknown')).toBeNull()
   })
 })
+
+describe('PHP dump detection does not fire inside ordinary identifiers', () => {
+  const cases = ['$cart->add($item);', '$grid->add($row);', '$x = add(1, 2);', 'heapdump_start();']
+
+  for (const line of cases) {
+    it(`leaves ${line} alone`, () => {
+      expect(matchLogMiasma(line, 'php')).toBeNull()
+    })
+  }
+
+  const hits = ['dd($user);', 'var_dump($x);', 'print_r($arr);', '$this->dump($v);']
+
+  for (const line of hits) {
+    it(`still catches ${line}`, () => {
+      expect(matchLogMiasma(line, 'php')).not.toBeNull()
+    })
+  }
+})

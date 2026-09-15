@@ -57,7 +57,11 @@ export const scratchRules: Rule[] = [
       const explanation = matchScratchFile(ctx.filePath)
       if (!explanation) return []
 
-      return [{ startLine: 1, endLine: 1, explanation, confidence: 0.95 }]
+      // An explicit .tmp/.bak/.scratch extension names itself as disposable;
+      // a generic name (scratch.py, dump.json, t.py) only resembles one.
+      const confidence = explanation === 'Untracked temporary file extension' ? 0.9 : 0.7
+
+      return [{ startLine: 1, endLine: 1, explanation, confidence }]
     },
   },
 ]
