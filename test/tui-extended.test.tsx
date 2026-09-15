@@ -85,6 +85,7 @@ describe('App TUI Extended Interactions', () => {
       backupPath: '.alpheus/backups/test',
       modifiedFiles: [{ path: 'src/a.ts', purgedLineCount: 1 }],
       unlinkedFiles: [],
+      unverifiable: [],
     }
 
     const { stdin } = render(

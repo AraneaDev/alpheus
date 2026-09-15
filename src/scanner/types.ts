@@ -82,4 +82,9 @@ export interface PurgeSummary {
     purgedLineCount: number
   }[]
   unlinkedFiles: string[]
+  unverifiable: {
+    filePath: string
+    startLine?: number
+    reason: string
+  }[]
 }

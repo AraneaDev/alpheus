@@ -33,6 +33,7 @@ describe('Interactive Ink TUI App', () => {
       backupPath: '.alpheus/backups/test',
       modifiedFiles: [{ path: 'src/test.ts', purgedLineCount: 1 }],
       unlinkedFiles: ['scratch.py'],
+      unverifiable: [],
     }
   }
 

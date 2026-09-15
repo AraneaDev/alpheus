@@ -187,6 +187,7 @@ export async function runTui(
           backupPath: '.alpheus/backups/demo_snapshot',
           modifiedFiles,
           unlinkedFiles: chosen.filter((i) => i.category === 'SCRATCH').map((i) => i.filePath),
+          unverifiable: [],
         }
         lastSummary = summary
         return summary

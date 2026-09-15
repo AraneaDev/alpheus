@@ -263,7 +263,10 @@ describe('In-Place File Mutator', () => {
 
     await purgeMiasma(TEST_DIR, items)
     const result = readFileSync(join(TEST_DIR, 'src/notrail.ts'), 'utf-8')
-    expect(result).toBe('const x = 1;')
+    // The removed line was the file's last, but the newline after "const x = 1;"
+    // was never part of the removed range: it belongs to the surviving line,
+    // whose own terminator is preserved untouched.
+    expect(result).toBe('const x = 1;\n')
   })
 
   it('should preserve CRLF line delimiters when modifying files', async () => {
@@ -285,5 +288,122 @@ describe('In-Place File Mutator', () => {
     await purgeMiasma(TEST_DIR, items)
     const result = readFileSync(join(TEST_DIR, 'src/crlf.ts'), 'utf-8')
     expect(result).toBe('const a = 1;\r\nconst b = 2;\r\n')
+  })
+})
+
+describe('purgeMiasma safety', () => {
+  beforeEach(() => {
+    if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true })
+    mkdirSync(join(TEST_DIR, 'src'), { recursive: true })
+  })
+
+  afterEach(() => {
+    if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true })
+  })
+
+  it('leaves every unselected line byte-identical', async () => {
+    const before = 'import os\n\n\ndef alpha():\n    print("dbg")\n    return 1\n\n\ndef beta():\n    return 2\n'
+    writeFileSync(join(TEST_DIR, 'mod.py'), before)
+
+    await purgeMiasma(TEST_DIR, [
+      {
+        id: 'log-1',
+        filePath: 'mod.py',
+        category: 'LOG',
+        ruleId: 'log/python',
+        span: { startLine: 5, endLine: 5, lines: ['    print("dbg")'] },
+        explanation: 'Debug print',
+        confidence: 1,
+      },
+    ], { skipBackup: true })
+
+    const after = readFileSync(join(TEST_DIR, 'mod.py'), 'utf-8')
+    expect(after).toBe('import os\n\n\ndef alpha():\n    return 1\n\n\ndef beta():\n    return 2\n')
+  })
+
+  it('removes every line of a tombstone block', async () => {
+    const block = '# a = compute(x)\n# if a > 0:\n#     return a\n# for row in rows:\n'
+    writeFileSync(join(TEST_DIR, 'dead.py'), `start\n${block}end\n`)
+
+    await purgeMiasma(TEST_DIR, [
+      {
+        id: 'tombstone-1',
+        filePath: 'dead.py',
+        category: 'TOMBSTONE',
+        ruleId: 'tombstone/block',
+        span: {
+          startLine: 2,
+          endLine: 5,
+          lines: ['# a = compute(x)', '# if a > 0:', '#     return a', '# for row in rows:'],
+        },
+        explanation: 'Commented-out dead code block (4 lines)',
+        confidence: 0.9,
+      },
+    ], { skipBackup: true })
+
+    expect(readFileSync(join(TEST_DIR, 'dead.py'), 'utf-8')).toBe('start\nend\n')
+  })
+
+  it('refuses to delete a line whose text has changed, and reports it', async () => {
+    writeFileSync(join(TEST_DIR, 'app.ts'), 'const a = 1\nconst b = 2\n')
+
+    const summary = await purgeMiasma(TEST_DIR, [
+      {
+        id: 'log-1',
+        filePath: 'app.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        span: { startLine: 1, endLine: 1, lines: ['console.log(a)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+    ], { skipBackup: true })
+
+    expect(readFileSync(join(TEST_DIR, 'app.ts'), 'utf-8')).toBe('const a = 1\nconst b = 2\n')
+    expect(summary.modifiedFiles).toHaveLength(0)
+    expect(summary.unverifiable).toHaveLength(1)
+    expect(summary.unverifiable[0].reason).toBe('not-found')
+  })
+
+  it('deletes the moved line rather than whatever sits at the recorded number', async () => {
+    writeFileSync(
+      join(TEST_DIR, 'app.ts'),
+      'const x = 10\nconst y = 11\nconst z = 12\nconst a = 1\nconsole.log(a)\n',
+    )
+
+    await purgeMiasma(TEST_DIR, [
+      {
+        id: 'log-1',
+        filePath: 'app.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        // The staged diff said line 2. The worktree has it at line 5.
+        span: { startLine: 2, endLine: 2, lines: ['console.log(a)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+    ], { skipBackup: true })
+
+    const after = readFileSync(join(TEST_DIR, 'app.ts'), 'utf-8')
+    expect(after).toBe('const x = 10\nconst y = 11\nconst z = 12\nconst a = 1\n')
+    expect(after).toContain('const a = 1')
+  })
+
+  it('preserves CRLF endings', async () => {
+    writeFileSync(join(TEST_DIR, 'win.ts'), 'const a = 1\r\nconsole.log(a)\r\nconst b = 2\r\n')
+
+    await purgeMiasma(TEST_DIR, [
+      {
+        id: 'log-1',
+        filePath: 'win.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        span: { startLine: 2, endLine: 2, lines: ['console.log(a)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+    ], { skipBackup: true })
+
+    expect(readFileSync(join(TEST_DIR, 'win.ts'), 'utf-8')).toBe('const a = 1\r\nconst b = 2\r\n')
   })
 })

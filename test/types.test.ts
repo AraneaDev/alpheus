@@ -66,6 +66,7 @@ describe('Core Domain Types', () => {
       backupPath: '.alpheus/backups/20260914_001',
       modifiedFiles: [{ path: 'src/main.ts', purgedLineCount: 1 }],
       unlinkedFiles: [],
+      unverifiable: [],
     }
     expect(summary.modifiedFiles[0].purgedLineCount).toBe(1)
   })
