@@ -15,5 +15,8 @@
   ],
   "ignoreDependencies": [
     "@stryker-mutator/core"
+  ],
+  "ignore": [
+    "test/fixtures/**"
   ]
 }
