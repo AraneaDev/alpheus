@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import { matchScratchFile } from '../src/engine/rules/scratch.ts'
 import { matchTombstoneBlocks } from '../src/engine/rules/tombstone.ts'
+import { evaluateHunks } from '../src/engine/matcher.ts'
+import type { DiffHunk } from '../src/scanner/types.ts'
 
 describe('Miasma Rule: [SCRATCH]', () => {
   it('should detect temporary and scratch files in root and scratch dirs', () => {
@@ -199,5 +201,39 @@ describe('Miasma Rule: [TOMBSTONE]', () => {
     ]
     const tombstones = matchTombstoneBlocks(lines, 'typescript')
     expect(tombstones.length).toBe(0)
+  })
+})
+
+describe('tombstone spans', () => {
+  const block = [
+    '    # old_value = compute(x)',
+    '    # if old_value > 0:',
+    '    #     return old_value',
+    '    # for row in rows:',
+  ]
+
+  const hunk: DiffHunk = {
+    filePath: 'mod.py',
+    startLine: 10,
+    lineCount: 4,
+    lines: block.map((content, i) => ({ lineNumber: 10 + i, content, type: 'add' as const })),
+  }
+
+  it('spans the whole block, not just its first line', () => {
+    const items = evaluateHunks([hunk])
+    const tombstone = items.find((i) => i.category === 'TOMBSTONE')
+
+    expect(tombstone).toBeDefined()
+    expect(tombstone?.span?.startLine).toBe(10)
+    expect(tombstone?.span?.endLine).toBe(13)
+    expect(tombstone?.span?.lines).toEqual(block)
+  })
+
+  it('records the block text rather than the explanation', () => {
+    const items = evaluateHunks([hunk])
+    const tombstone = items.find((i) => i.category === 'TOMBSTONE')
+
+    expect(tombstone?.span?.lines[0]).toBe('    # old_value = compute(x)')
+    expect(tombstone?.explanation).toContain('4 lines')
   })
 })

@@ -25,18 +25,20 @@ export function evaluateHunks(hunks: DiffHunk[]): MiasmaItem[] {
     const tombstoneLineRanges = new Set<number>()
 
     for (const ts of tombstones) {
+      const blockLines: string[] = []
+
       for (let l = ts.startLine; l <= ts.endLine; l++) {
         tombstoneLineRanges.add(l)
+        const found = hunk.lines.find((hl) => hl.lineNumber === l)
+        if (found) blockLines.push(found.content)
       }
 
-      const startContent = hunk.lines.find((l) => l.lineNumber === ts.startLine)?.content ?? ''
-
       items.push({
-        id: makeFindingId('TOMBSTONE', hunk.filePath, ts.startLine, [startContent]),
+        id: makeFindingId('TOMBSTONE', hunk.filePath, ts.startLine, blockLines),
         filePath: hunk.filePath,
         category: 'TOMBSTONE',
-        ruleId: `tombstone/${lang}`,
-        span: { startLine: ts.startLine, endLine: ts.startLine, lines: [startContent] },
+        ruleId: 'tombstone/block',
+        span: { startLine: ts.startLine, endLine: ts.endLine, lines: blockLines },
         explanation: ts.explanation,
         confidence: 0.9,
       })
