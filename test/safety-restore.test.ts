@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { createSafetyBackup, listBackups } from '../src/safety/backup.ts'
 import { purgeMiasma } from '../src/safety/mutator.ts'
@@ -201,5 +201,69 @@ describe('restore verification', () => {
     )
 
     await expect(restoreBackup(TEST_DIR, id)).rejects.toThrow(/outside the repository/)
+  })
+
+  it('refuses to restore over a new file created where a purged file was deleted', async () => {
+    writeFileSync(join(TEST_DIR, 'debug.tmp'), 'throwaway\n')
+
+    await purgeMiasma(TEST_DIR, [
+      {
+        id: 'scratch-1',
+        filePath: 'debug.tmp',
+        category: 'SCRATCH',
+        ruleId: 'scratch/untracked',
+        explanation: 'Scratch file',
+        confidence: 1,
+      },
+    ])
+
+    expect(existsSync(join(TEST_DIR, 'debug.tmp'))).toBe(false)
+
+    // Unrelated real work lands at the same path after the purge.
+    writeFileSync(join(TEST_DIR, 'debug.tmp'), 'real work\n')
+
+    await expect(restoreBackup(TEST_DIR)).rejects.toThrow(/debug\.tmp/)
+    expect(readFileSync(join(TEST_DIR, 'debug.tmp'), 'utf-8')).toBe('real work\n')
+
+    const restored = await restoreBackup(TEST_DIR, undefined, { force: true })
+    expect(restored).toContain('debug.tmp')
+    expect(readFileSync(join(TEST_DIR, 'debug.tmp'), 'utf-8')).toBe('throwaway\n')
+  })
+
+  it('leaves non-conflicting files untouched when another file in the same restore conflicts', async () => {
+    writeFileSync(join(TEST_DIR, 'safe.ts'), 'const a = 1\nconsole.log(a)\n')
+    writeFileSync(join(TEST_DIR, 'conflict.ts'), 'const b = 1\nconsole.log(b)\n')
+
+    await purgeMiasma(TEST_DIR, [
+      {
+        id: 'log-safe',
+        filePath: 'safe.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        span: { startLine: 2, endLine: 2, lines: ['console.log(a)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+      {
+        id: 'log-conflict',
+        filePath: 'conflict.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        span: { startLine: 2, endLine: 2, lines: ['console.log(b)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+    ])
+
+    // Work happens on conflict.ts only; safe.ts is left exactly as the purge left it.
+    writeFileSync(join(TEST_DIR, 'conflict.ts'), 'const b = 1\nconst valuable = work()\n')
+
+    const safeMtimeBefore = statSync(join(TEST_DIR, 'safe.ts')).mtimeMs
+
+    await expect(restoreBackup(TEST_DIR)).rejects.toThrow(/conflict\.ts/)
+
+    expect(readFileSync(join(TEST_DIR, 'conflict.ts'), 'utf-8')).toContain('valuable')
+    expect(statSync(join(TEST_DIR, 'safe.ts')).mtimeMs).toBe(safeMtimeBefore)
+    expect(readFileSync(join(TEST_DIR, 'safe.ts'), 'utf-8')).toBe('const a = 1\n')
   })
 })

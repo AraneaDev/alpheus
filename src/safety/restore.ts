@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { dirname, join, resolve, sep } from 'path'
-import type { BackupManifest } from '../scanner/types.ts'
+import type { BackupManifest, BackupManifestFile } from '../scanner/types.ts'
 import { listBackups } from './backup.ts'
 
 /**
@@ -12,13 +12,57 @@ export interface RestoreOptions {
 }
 
 /**
+ * A manifest entry that has been validated and is safe to copy back.
+ */
+interface PlannedRestore {
+  originalPath: string
+  destFilePath: string
+  backupFilePath: string
+}
+
+/**
+ * Determines whether restoring `file` over the current working tree would
+ * discard work done since the purge.
+ *
+ * An `unlink` entry never carries `sha256After`, because the purge deleted
+ * the file and there was nothing left to hash. That absence is itself the
+ * baseline: anything found at `destFilePath` now was created after the
+ * purge, so its mere presence is the conflict, not a hash mismatch. A
+ * `modify` entry is compared against the hash recorded right after the
+ * purge; a missing hash or a missing file is not treated as a conflict,
+ * since there is nothing on disk to compare against.
+ *
+ * @param file - The manifest entry describing the original file and its
+ *   recorded post-purge hash.
+ * @param destFilePath - Absolute path of the file's current location.
+ * @returns True if restoring would overwrite content the purge did not produce.
+ */
+function hasConflict(file: BackupManifestFile, destFilePath: string): boolean {
+  if (file.action === 'unlink') {
+    return existsSync(destFilePath)
+  }
+
+  if (!file.sha256After || !existsSync(destFilePath)) return false
+
+  const current = createHash('sha256').update(readFileSync(destFilePath)).digest('hex')
+  return current !== file.sha256After
+}
+
+/**
  * Restores modified and unlinked files from a backup snapshot.
  *
- * Each file is restored only if it is unchanged since the purge that
- * created the backup, verified against the `sha256After` hash recorded by
- * `finalizeSafetyBackup`. A file edited since the purge is left alone and
- * reported as a conflict rather than silently overwritten, unless
- * `options.force` is set.
+ * Restoring is two-pass: every manifest entry is first resolved and checked
+ * for conflicts against the current working tree, and only once the whole
+ * set is known to be safe does the second pass copy anything back. A
+ * refused restore therefore changes nothing at all, rather than leaving the
+ * tree partly restored with an error naming only the file it happened to
+ * reach first.
+ *
+ * A file is restored only if it is unchanged since the purge that created
+ * the backup (see {@link hasConflict}). A file that conflicts is left alone
+ * and reported rather than silently overwritten, unless `options.force` is
+ * set, which bypasses the conflict check but never the path-traversal
+ * rejection below.
  *
  * @param cwd - Repository root directory.
  * @param snapshotId - Optional specific snapshot ID; defaults to the latest backup.
@@ -48,8 +92,8 @@ export async function restoreBackup(
   }
 
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as BackupManifest
-  const restoredPaths: string[] = []
   const conflicts: string[] = []
+  const planned: PlannedRestore[] = []
 
   for (const file of manifest.files) {
     const destFilePath = resolve(cwd, file.originalPath)
@@ -61,17 +105,12 @@ export async function restoreBackup(
     const backupFilePath = join(backupDir, file.backupRelPath)
     if (!existsSync(backupFilePath)) continue
 
-    if (!options?.force && file.sha256After && existsSync(destFilePath)) {
-      const current = createHash('sha256').update(readFileSync(destFilePath)).digest('hex')
-      if (current !== file.sha256After) {
-        conflicts.push(file.originalPath)
-        continue
-      }
+    if (!options?.force && hasConflict(file, destFilePath)) {
+      conflicts.push(file.originalPath)
+      continue
     }
 
-    mkdirSync(dirname(destFilePath), { recursive: true })
-    copyFileSync(backupFilePath, destFilePath)
-    restoredPaths.push(file.originalPath)
+    planned.push({ originalPath: file.originalPath, destFilePath, backupFilePath })
   }
 
   if (conflicts.length > 0) {
@@ -80,6 +119,13 @@ export async function restoreBackup(
         conflicts.map((c) => `  - ${c}`).join('\n') +
         `\nRe-run with --force to restore anyway.`,
     )
+  }
+
+  const restoredPaths: string[] = []
+  for (const { originalPath, destFilePath, backupFilePath } of planned) {
+    mkdirSync(dirname(destFilePath), { recursive: true })
+    copyFileSync(backupFilePath, destFilePath)
+    restoredPaths.push(originalPath)
   }
 
   return restoredPaths
