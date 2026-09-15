@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { main } from '../src/cli.ts'
 
@@ -167,5 +167,51 @@ describe('CLI Commands Dispatching', () => {
     expect(readFileSync(join(tmpDir, 'app.ts'), 'utf-8')).toBe(
       'console.log(a)\nconst b = 2\nconsole.log(a)\n',
     )
+  })
+
+  it('reports a finding whose recorded text is no longer in the file as "not-found"', async () => {
+    // Stage one version of an added console.log line, then edit it again
+    // without staging: the staged half of the diff still carries the old
+    // text, which the file on disk no longer has anywhere.
+    writeFileSync(join(tmpDir, 'stale.ts'), 'export const y = 1\nconsole.log("first")\n')
+    await gitAddAll(tmpDir)
+    writeFileSync(join(tmpDir, 'stale.ts'), 'export const y = 1\nconsole.log("second")\n')
+
+    const lines: string[] = []
+    const spy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      lines.push(String(msg))
+    })
+
+    await main(['clean'], tmpDir)
+
+    spy.mockRestore()
+    const output = lines.join('\n')
+
+    expect(output).toContain('could not verify')
+    expect(output).toContain('stale.ts')
+    expect(output).toContain('the text has moved or been removed')
+  })
+
+  it('reports a finding whose file has disappeared as "missing-file"', async () => {
+    // Stage a whole new file (so the staged diff records its console.log
+    // line), then delete it from disk without staging the deletion: the
+    // finding still exists, but its file does not.
+    writeFileSync(join(tmpDir, 'ghost.ts'), 'export const z = 1\nconsole.log("ghost")\n')
+    await gitAddAll(tmpDir)
+    unlinkSync(join(tmpDir, 'ghost.ts'))
+
+    const lines: string[] = []
+    const spy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      lines.push(String(msg))
+    })
+
+    await main(['clean'], tmpDir)
+
+    spy.mockRestore()
+    const output = lines.join('\n')
+
+    expect(output).toContain('could not verify')
+    expect(output).toContain('ghost.ts')
+    expect(output).toContain('the file is gone')
   })
 })

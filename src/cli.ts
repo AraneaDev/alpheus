@@ -5,8 +5,23 @@ import { formatTable } from './reporter/table.ts'
 import { listBackups } from './safety/backup.ts'
 import { purgeMiasma } from './safety/mutator.ts'
 import { restoreBackup } from './safety/restore.ts'
+import type { UnverifiableReason } from './scanner/types.ts'
 import { runTui } from './tui/app.tsx'
 import { DEMO_ITEMS } from './tui/demo.ts'
+
+/**
+ * Human-readable explanation for each reason a finding could not be
+ * verified against the working tree.
+ *
+ * Typed as `Record<UnverifiableReason, string>` rather than a chain of
+ * ternaries so that adding a fourth reason without adding a line here is a
+ * compile error instead of a silent fall-through to the wrong text.
+ */
+const UNVERIFIABLE_REASON_TEXT: Record<UnverifiableReason, string> = {
+  ambiguous: 'the same text appears more than once',
+  'missing-file': 'the file is gone',
+  'not-found': 'the text has moved or been removed',
+}
 
 function printHelp(): void {
   console.log(`
@@ -91,11 +106,7 @@ export async function main(
         console.log(`\nAlpheus could not verify ${summary.unverifiable.length} findings and left them alone:`)
         for (const u of summary.unverifiable) {
           const loc = u.startLine ? `${u.filePath}:${u.startLine}` : u.filePath
-          const why = u.reason === 'ambiguous'
-            ? 'the same text appears more than once'
-            : u.reason === 'missing-file'
-              ? 'the file is gone'
-              : 'the text has moved or been removed'
+          const why = UNVERIFIABLE_REASON_TEXT[u.reason]
           console.log(`  - ${loc} (${why})`)
         }
         console.log('Re-run `alpheus check` for a fresh scan.')

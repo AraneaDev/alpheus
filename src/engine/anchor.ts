@@ -1,11 +1,15 @@
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
-import type { MiasmaItem, SourceSpan } from '../scanner/types.ts'
+import type { MiasmaItem, SourceSpan, UnverifiableReason } from '../scanner/types.ts'
 
 /**
  * Why a finding could not be resolved against the working tree.
+ *
+ * Re-exported from `scanner/types.ts`, which owns the definition: that is the
+ * base layer `PurgeSummary` lives in, and `engine` is not allowed to be
+ * imported from there.
  */
-export type UnverifiableReason = 'not-found' | 'ambiguous' | 'missing-file'
+export type { UnverifiableReason }
 
 /**
  * A finding whose text was located in the working tree, with its true position.

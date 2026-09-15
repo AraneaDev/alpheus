@@ -72,6 +72,17 @@ export interface BackupManifest {
 }
 
 /**
+ * Why a finding could not be resolved against the working tree.
+ *
+ * Lives here rather than in `engine/anchor.ts`, which produces it: `scanner`
+ * is the base layer that `engine` and `safety` both import from, never the
+ * reverse, and `PurgeSummary` (defined in this file) needs the same closed
+ * set of reasons that `anchorFindings` returns. `engine/anchor.ts` re-exports
+ * this type so existing imports from there keep working.
+ */
+export type UnverifiableReason = 'not-found' | 'ambiguous' | 'missing-file'
+
+/**
  * Result summary of a purge operation.
  */
 export interface PurgeSummary {
@@ -85,6 +96,6 @@ export interface PurgeSummary {
   unverifiable: {
     filePath: string
     startLine?: number
-    reason: string
+    reason: UnverifiableReason
   }[]
 }
