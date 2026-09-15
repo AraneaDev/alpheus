@@ -74,7 +74,7 @@ export async function createSafetyBackup(cwd: string, items: MiasmaItem[]): Prom
 
     const isScratch = fileItems.some((i) => i.category === 'SCRATCH')
     const purgedLines = fileItems
-      .map((i) => i.lineNumber)
+      .map((i) => i.span?.startLine)
       .filter((ln): ln is number => typeof ln === 'number')
 
     manifestFiles.push({

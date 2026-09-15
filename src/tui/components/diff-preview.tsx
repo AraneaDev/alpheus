@@ -57,35 +57,22 @@ export const DiffPreview: React.FC<DiffPreviewProps> = ({ item, cwd, maxLines })
   // Handle line-level findings
   const lineLimit = maxLines ?? 7
   const radius = Math.max(2, Math.floor((lineLimit - 1) / 2))
+  const targetStart = item.span?.startLine ?? 1
+  const targetEnd = item.span?.endLine ?? targetStart
   let snippet: { lineNum: number; content: string; isTarget: boolean }[] = []
 
-  if (item.contextLines && item.contextLines.length > 0) {
-    const rawSnippet = item.contextLines.map((c) => ({
-      lineNum: c.line,
-      content: c.content,
-      isTarget: c.isTarget,
-    }))
-    if (rawSnippet.length > lineLimit) {
-      const targetIdx = rawSnippet.findIndex((c) => c.isTarget)
-      const center = targetIdx >= 0 ? targetIdx : 0
-      const start = Math.max(0, Math.min(center - radius, rawSnippet.length - lineLimit))
-      snippet = rawSnippet.slice(start, start + lineLimit)
-    } else {
-      snippet = rawSnippet
-    }
-  } else if (existsSync(absPath)) {
+  if (existsSync(absPath)) {
     try {
       const raw = readFileSync(absPath, 'utf-8')
       const allLines = raw.split(/\r?\n/)
-      const targetLine = item.lineNumber || 1
-      const start = Math.max(1, targetLine - radius)
-      const end = Math.min(allLines.length, targetLine + radius)
+      const start = Math.max(1, targetStart - radius)
+      const end = Math.min(allLines.length, targetEnd + radius)
 
       for (let i = start; i <= end; i++) {
         snippet.push({
           lineNum: i,
           content: allLines[i - 1] || '',
-          isTarget: i === targetLine,
+          isTarget: i >= targetStart && i <= targetEnd,
         })
       }
     } catch {
@@ -104,7 +91,7 @@ export const DiffPreview: React.FC<DiffPreviewProps> = ({ item, cwd, maxLines })
       <Box flexDirection="column">
         <Box justifyContent="space-between">
           <Text bold color="white" wrap="truncate-end">
-            Context: {item.filePath}:{item.lineNumber}
+            Context: {item.filePath}:{targetStart}
           </Text>
           <Text bold color="yellow">
             [{item.category}]

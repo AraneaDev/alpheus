@@ -25,7 +25,7 @@ async function handlePreTool(): Promise<void> {
       if (items.length > 0) {
         console.error(`\n[Alpheus] Working tree contains ${items.length} uncommitted agent miasma items:`)
         for (const i of items.slice(0, 5)) {
-          const loc = i.lineNumber ? `${i.filePath}:${i.lineNumber}` : i.filePath
+          const loc = i.span?.startLine ? `${i.filePath}:${i.span.startLine}` : i.filePath
           console.error(`  - [${i.category}] ${loc} (${i.explanation})`)
         }
         if (items.length > 5) {

@@ -72,7 +72,7 @@ export async function purgeMiasma(
 
     // Collect 1-indexed line numbers and sort descending
     const lineNumbers = fileItems
-      .map((i) => i.lineNumber)
+      .map((i) => i.span?.startLine)
       .filter((ln): ln is number => typeof ln === 'number')
       .sort((a, b) => b - a)
 

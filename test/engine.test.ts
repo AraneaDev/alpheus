@@ -23,11 +23,11 @@ describe('Miasma Engine Orchestrator', () => {
     const logItem = items.find((i) => i.category === 'LOG')
     expect(logItem).toBeDefined()
     expect(logItem?.filePath).toBe('src/auth.ts')
-    expect(logItem?.lineNumber).toBe(41)
+    expect(logItem?.span?.startLine).toBe(41)
 
     const suppressItem = items.find((i) => i.category === 'SUPPRESS')
     expect(suppressItem).toBeDefined()
-    expect(suppressItem?.lineNumber).toBe(42)
+    expect(suppressItem?.span?.startLine).toBe(42)
   })
 
   it('should evaluate untracked scratch files', () => {
@@ -58,7 +58,7 @@ describe('Miasma Engine Orchestrator', () => {
     const items = evaluateHunks(hunks)
     const tombstone = items.find((i) => i.category === 'TOMBSTONE')
     expect(tombstone).toBeDefined()
-    expect(tombstone?.lineNumber).toBe(1)
+    expect(tombstone?.span?.startLine).toBe(1)
   })
 
   it('should detect PATH miasma in hunks', () => {
@@ -77,6 +77,6 @@ describe('Miasma Engine Orchestrator', () => {
     const pathItem = items.find((i) => i.category === 'PATH')
     expect(pathItem).toBeDefined()
     expect(pathItem?.filePath).toBe('src/config.ts')
-    expect(pathItem?.lineNumber).toBe(1)
+    expect(pathItem?.span?.startLine).toBe(1)
   })
 })

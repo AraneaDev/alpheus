@@ -38,9 +38,9 @@ describe('Safety Backup & Restore Edge Cases', () => {
     const item: MiasmaItem = {
       id: 'i-1',
       filePath: 'test.ts',
-      lineNumber: 1,
       category: 'LOG',
-      matchedContent: 'console.log()',
+      ruleId: 'log/typescript',
+      span: { startLine: 1, endLine: 1, lines: ['console.log()'] },
       explanation: 'log',
       confidence: 1.0,
     }

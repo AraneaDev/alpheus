@@ -1,6 +1,7 @@
 import type { DiffHunk, MiasmaItem } from '../scanner/types.ts'
 import { scanGitDiff, scanUntrackedFiles } from '../scanner/git.ts'
 import { detectLanguage } from './language.ts'
+import { makeFindingId } from './identity.ts'
 import { matchLogMiasma } from './rules/log.ts'
 import { matchSuppressMiasma } from './rules/suppress.ts'
 import { matchPathMiasma } from './rules/path.ts'
@@ -28,12 +29,14 @@ export function evaluateHunks(hunks: DiffHunk[]): MiasmaItem[] {
         tombstoneLineRanges.add(l)
       }
 
+      const startContent = hunk.lines.find((l) => l.lineNumber === ts.startLine)?.content ?? ''
+
       items.push({
-        id: `tombstone-${hunk.filePath}-${ts.startLine}`,
+        id: makeFindingId('TOMBSTONE', hunk.filePath, ts.startLine, [startContent]),
         filePath: hunk.filePath,
-        lineNumber: ts.startLine,
         category: 'TOMBSTONE',
-        matchedContent: ts.explanation,
+        ruleId: `tombstone/${lang}`,
+        span: { startLine: ts.startLine, endLine: ts.startLine, lines: [startContent] },
         explanation: ts.explanation,
         confidence: 0.9,
       })
@@ -50,11 +53,11 @@ export function evaluateHunks(hunks: DiffHunk[]): MiasmaItem[] {
       const logMatch = matchLogMiasma(line.content, lang)
       if (logMatch) {
         items.push({
-          id: `log-${hunk.filePath}-${line.lineNumber}`,
+          id: makeFindingId('LOG', hunk.filePath, line.lineNumber, [line.content]),
           filePath: hunk.filePath,
-          lineNumber: line.lineNumber,
           category: 'LOG',
-          matchedContent: line.content.trim(),
+          ruleId: `log/${lang}`,
+          span: { startLine: line.lineNumber, endLine: line.lineNumber, lines: [line.content] },
           explanation: logMatch,
           confidence: 1.0,
         })
@@ -65,11 +68,11 @@ export function evaluateHunks(hunks: DiffHunk[]): MiasmaItem[] {
       const suppressMatch = matchSuppressMiasma(line.content, lang)
       if (suppressMatch) {
         items.push({
-          id: `suppress-${hunk.filePath}-${line.lineNumber}`,
+          id: makeFindingId('SUPPRESS', hunk.filePath, line.lineNumber, [line.content]),
           filePath: hunk.filePath,
-          lineNumber: line.lineNumber,
           category: 'SUPPRESS',
-          matchedContent: line.content.trim(),
+          ruleId: `suppress/${lang}`,
+          span: { startLine: line.lineNumber, endLine: line.lineNumber, lines: [line.content] },
           explanation: suppressMatch,
           confidence: 1.0,
         })
@@ -80,11 +83,11 @@ export function evaluateHunks(hunks: DiffHunk[]): MiasmaItem[] {
       const pathMatch = matchPathMiasma(line.content)
       if (pathMatch) {
         items.push({
-          id: `path-${hunk.filePath}-${line.lineNumber}`,
+          id: makeFindingId('PATH', hunk.filePath, line.lineNumber, [line.content]),
           filePath: hunk.filePath,
-          lineNumber: line.lineNumber,
           category: 'PATH',
-          matchedContent: line.content.trim(),
+          ruleId: `path/${lang}`,
+          span: { startLine: line.lineNumber, endLine: line.lineNumber, lines: [line.content] },
           explanation: pathMatch,
           confidence: 0.95,
         })
@@ -108,10 +111,10 @@ export function evaluateUntracked(untrackedFiles: string[]): MiasmaItem[] {
     const scratchMatch = matchScratchFile(file)
     if (scratchMatch) {
       items.push({
-        id: `scratch-${file}`,
+        id: makeFindingId('SCRATCH', file, 0, [file]),
         filePath: file,
         category: 'SCRATCH',
-        matchedContent: file,
+        ruleId: 'scratch/untracked',
         explanation: scratchMatch,
         confidence: 0.95,
       })

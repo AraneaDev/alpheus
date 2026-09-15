@@ -48,7 +48,7 @@ export const FindingList: React.FC<FindingListProps> = ({
           const actualIdx = startIndex + relIdx
           const isCursor = actualIdx === cursorIndex
           const isSelected = selectedIds.has(item.id)
-          const loc = item.lineNumber ? `${item.filePath}:${item.lineNumber}` : item.filePath
+          const loc = item.span?.startLine ? `${item.filePath}:${item.span.startLine}` : item.filePath
           const catColor = theme.categoryColor(item.category)
           const catLabel = `[${item.category}]`.padEnd(11, ' ')
 

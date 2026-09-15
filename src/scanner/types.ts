@@ -4,12 +4,15 @@
 export type MiasmaCategory = 'LOG' | 'SUPPRESS' | 'SCRATCH' | 'TOMBSTONE' | 'PATH'
 
 /**
- * Surrounding code context for rendering diff previews.
+ * A contiguous range of source lines, carrying the exact text that was matched.
+ *
+ * The text is what makes a finding verifiable: the mutator will refuse to
+ * delete a range whose lines no longer match what the rule saw.
  */
-export interface ContextLine {
-  line: number
-  content: string
-  isTarget: boolean
+export interface SourceSpan {
+  startLine: number
+  endLine: number
+  lines: string[]
 }
 
 /**
@@ -18,10 +21,9 @@ export interface ContextLine {
 export interface MiasmaItem {
   id: string
   filePath: string
-  lineNumber?: number
   category: MiasmaCategory
-  matchedContent: string
-  contextLines?: ContextLine[]
+  ruleId: string
+  span?: SourceSpan
   explanation: string
   confidence: number
 }

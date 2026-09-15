@@ -22,19 +22,19 @@ describe('Safety Backup & Restore Protocol', () => {
   it('should create an atomic backup with manifest and copies of affected files', async () => {
     const items: MiasmaItem[] = [
       {
-        id: '1',
+        id: 'log-aaaaaaaaaaaa',
         filePath: 'src/main.ts',
-        lineNumber: 1,
         category: 'LOG',
-        matchedContent: 'console.log("hello");',
+        ruleId: 'log/typescript',
+        span: { startLine: 1, endLine: 1, lines: ['console.log("hello");'] },
         explanation: 'Debug log',
         confidence: 1,
       },
       {
-        id: '2',
+        id: 'scratch-bbbbbbbbbbbb',
         filePath: 'scratch.py',
         category: 'SCRATCH',
-        matchedContent: 'scratch.py',
+        ruleId: 'scratch/untracked',
         explanation: 'Scratch file',
         confidence: 1,
       },
@@ -60,19 +60,19 @@ describe('Safety Backup & Restore Protocol', () => {
 
     const items: MiasmaItem[] = [
       {
-        id: '1',
+        id: 'log-aaaaaaaaaaaa',
         filePath: 'src/main.ts',
-        lineNumber: 1,
         category: 'LOG',
-        matchedContent: 'console.log("hello");',
+        ruleId: 'log/typescript',
+        span: { startLine: 1, endLine: 1, lines: ['console.log("hello");'] },
         explanation: 'Debug log',
         confidence: 1,
       },
       {
-        id: '2',
+        id: 'scratch-bbbbbbbbbbbb',
         filePath: 'scratch.py',
         category: 'SCRATCH',
-        matchedContent: 'scratch.py',
+        ruleId: 'scratch/untracked',
         explanation: 'Scratch file',
         confidence: 1,
       },
