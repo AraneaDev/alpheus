@@ -190,8 +190,8 @@ export async function runTui(
           }
         }
         const summary: PurgeSummary = {
-          backupId: 'demo_snapshot',
-          backupPath: '.alpheus/backups/demo_snapshot',
+          backupId: 'demo',
+          backupPath: '',
           modifiedFiles,
           unlinkedFiles: chosen.filter((i) => i.category === 'SCRATCH').map((i) => i.filePath),
           unverifiable: [],
@@ -215,11 +215,21 @@ export async function runTui(
     )
   }).then((code) => {
     if (lastSummary) {
-      console.log(`Alpheus purged ${lastSummary.modifiedFiles.reduce((acc, f) => acc + f.purgedLineCount, 0)} items across ${lastSummary.modifiedFiles.length} files.`)
+      const purgedLines = lastSummary.modifiedFiles.reduce((acc, f) => acc + f.purgedLineCount, 0)
+      const linesWord = purgedLines === 1 ? 'line' : 'lines'
+      const filesWord = lastSummary.modifiedFiles.length === 1 ? 'file' : 'files'
+
+      if (lastSummary.modifiedFiles.length > 0) {
+        console.log(`Alpheus purged ${purgedLines} ${linesWord} across ${lastSummary.modifiedFiles.length} ${filesWord}.`)
+      }
       if (lastSummary.unlinkedFiles.length > 0) {
         console.log(`Deleted ${lastSummary.unlinkedFiles.length} scratch files: ${lastSummary.unlinkedFiles.join(', ')}`)
       }
-      console.log(`Backup saved to ${lastSummary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
+      if (lastSummary.backupPath) {
+        console.log(`Backup saved to ${lastSummary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
+      } else {
+        console.log('Demo mode: nothing was written.')
+      }
     }
     return code
   })

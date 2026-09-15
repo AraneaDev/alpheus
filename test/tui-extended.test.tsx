@@ -267,7 +267,8 @@ describe('App TUI Extended Interactions', () => {
       }>
       if (element.props.onPurge) {
         element.props.onPurge(element.props.items).then((res) => {
-          expect(res.backupPath).toContain('demo')
+          expect(res.backupId).toBe('demo')
+          expect(res.backupPath).toBe('')
         })
       }
       purgeCalled = true

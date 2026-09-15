@@ -38,12 +38,16 @@ Usage:
   alpheus help                 Show this help message
 
 Flags:
-  --json                       Output structured JSON (check mode)
+  --json                       Output structured JSON (check, clean, backups, restore)
   --quiet                      Suppress output (check mode)
   --dry-run                    Simulate changes without modifying files (clean mode)
   --force                      Restore even over files edited since the purge (restore mode)
+  --min-confidence <0-1>       Confidence threshold for unattended action (default 0.8; check/clean)
 `)
 }
+
+/** Commands `main` recognizes; anything else is a usage error. */
+const KNOWN_COMMANDS = ['check', 'clean', 'restore', 'backups', 'demo', 'help']
 
 /**
  * Main command-line entrypoint for Alpheus CLI.
@@ -63,8 +67,15 @@ export async function main(
     return 0
   }
 
+  if (command !== '' && !command.startsWith('-') && !KNOWN_COMMANDS.includes(command)) {
+    console.error(`Unknown command: ${command}`)
+    printHelp()
+    return 2
+  }
+
+  const isJson = args.includes('--json')
+
   if (command === 'check') {
-    const isJson = args.includes('--json')
     const isQuiet = args.includes('--quiet')
     const minConfidence = parseMinConfidence(args)
 
@@ -98,26 +109,51 @@ export async function main(
     try {
       const items = await evaluateWorkingTree(cwd)
       if (items.length === 0) {
-        console.log('Working tree clean. No miasma to purge.')
+        if (isJson) {
+          console.log(JSON.stringify({ modifiedFiles: [], unlinkedFiles: [], unverifiable: [], review: [] }, null, 2))
+        } else {
+          console.log('Working tree clean. No miasma to purge.')
+        }
         return 0
       }
 
       const { actionable, review } = partitionByConfidence(items, minConfidence)
 
       if (actionable.length === 0) {
+        if (isJson) {
+          console.log(JSON.stringify({ modifiedFiles: [], unlinkedFiles: [], unverifiable: [], review }, null, 2))
+          return 0
+        }
         console.log('Nothing to purge above the confidence threshold.')
       } else {
         const summary = await purgeMiasma(cwd, actionable, { dryRun: isDryRun })
+        const purgedLines = summary.modifiedFiles.reduce((n, f) => n + f.purgedLineCount, 0)
+
+        if (isJson) {
+          console.log(JSON.stringify({ ...summary, review }, null, 2))
+          return 0
+        }
+
+        const linesWord = purgedLines === 1 ? 'line' : 'lines'
+        const filesWord = summary.modifiedFiles.length === 1 ? 'file' : 'files'
 
         if (isDryRun) {
-          console.log(`[Dry Run] Would purge ${actionable.length} items across ${summary.modifiedFiles.length} files.`)
+          if (summary.modifiedFiles.length > 0) {
+            console.log(`[Dry Run] Would purge ${purgedLines} ${linesWord} across ${summary.modifiedFiles.length} ${filesWord}.`)
+          }
+          if (summary.unlinkedFiles.length > 0) {
+            console.log(`Would delete ${summary.unlinkedFiles.length} scratch files: ${summary.unlinkedFiles.join(', ')}`)
+          }
         } else {
-          console.log(`Alpheus purged ${actionable.length} items across ${summary.modifiedFiles.length} files.`)
+          if (summary.modifiedFiles.length > 0) {
+            console.log(`Alpheus purged ${purgedLines} ${linesWord} across ${summary.modifiedFiles.length} ${filesWord}.`)
+          }
           if (summary.unlinkedFiles.length > 0) {
             console.log(`Deleted ${summary.unlinkedFiles.length} scratch files: ${summary.unlinkedFiles.join(', ')}`)
           }
           console.log(`Backup saved to ${summary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
         }
+
         if (summary.unverifiable.length > 0) {
           console.log(`\nAlpheus could not verify ${summary.unverifiable.length} findings and left them alone:`)
           for (const u of summary.unverifiable) {
@@ -129,6 +165,8 @@ export async function main(
         }
       }
 
+      // Printed for both the "nothing actionable" and "purge happened" paths
+      // above, since a review-worthy finding can sit alongside either outcome.
       if (review.length > 0) {
         console.log(`\n${review.length} findings need review and were left alone:`)
         for (const item of review) {
@@ -146,13 +184,19 @@ export async function main(
   }
 
   if (command === 'restore') {
-    const targetId = args[1] && !args[1].startsWith('--') ? args[1] : undefined
+    // The id is whichever positional argument isn't a flag, so it can come
+    // before or after `--force` (`restore --force <id>` or `restore <id> --force`).
+    const targetId = args.slice(1).find((a) => !a.startsWith('--'))
     const force = args.includes('--force')
     try {
       const restored = await restoreBackup(cwd, targetId, { force })
-      console.log(`Successfully restored ${restored.length} files from backup:`)
-      for (const f of restored) {
-        console.log(`  - ${f}`)
+      if (isJson) {
+        console.log(JSON.stringify({ restored }, null, 2))
+      } else {
+        console.log(`Successfully restored ${restored.length} files from backup:`)
+        for (const f of restored) {
+          console.log(`  - ${f}`)
+        }
       }
       return 0
     } catch (err: unknown) {
@@ -164,6 +208,12 @@ export async function main(
   if (command === 'backups') {
     try {
       const manifests = await listBackups(cwd)
+
+      if (isJson) {
+        console.log(JSON.stringify(manifests, null, 2))
+        return 0
+      }
+
       if (manifests.length === 0) {
         console.log('No backups found in .alpheus/backups/')
         return 0
@@ -188,14 +238,18 @@ export async function main(
     return await runTui(cwd, undefined, DEMO_ITEMS)
   }
 
-  // Default: Launch TUI if in interactive terminal, otherwise fallback to check
+  // Default: Launch TUI if in interactive terminal, otherwise fallback to check.
+  // Exit code follows the same rule as `alpheus check`: only findings at or
+  // above the confidence threshold fail it, so the two agree on the same tree.
   if (!process.stdin.isTTY) {
+    const minConfidence = parseMinConfidence(args)
     const items = await evaluateWorkingTree(cwd)
+    const { actionable } = partitionByConfidence(items, minConfidence)
     console.log(formatTable(items))
     if (items.length === 0) {
       console.log('Tip: Run `alpheus demo` to explore the interactive TUI with simulated findings.')
     }
-    return items.length === 0 ? 0 : 1
+    return actionable.length === 0 ? 0 : 1
   }
 
   return await runTui(cwd)

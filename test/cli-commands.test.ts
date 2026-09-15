@@ -279,4 +279,95 @@ describe('CLI Commands Dispatching', () => {
     expect(cleanCode).toBe(0)
     expect(readFileSync(join(tmpDir, 'legacy.ts'), 'utf-8')).not.toContain('@ts-expect-error')
   })
+
+  it('rejects an unknown command instead of launching the TUI', async () => {
+    const code = await main(['clena'], tmpDir)
+    expect(code).toBe(2)
+  })
+
+  it('accepts --json for clean, not only for check', async () => {
+    writeFileSync(join(tmpDir, 'file.ts'), 'export const x = 1\nconsole.log("agent test");\n')
+    const code = await main(['clean', '--dry-run', '--json'], tmpDir)
+    expect(code).toBe(0)
+  })
+
+  it('counts lines and files consistently in clean output', async () => {
+    // A scratch file with no modified-file findings alongside it: the old
+    // wording divided by summary.modifiedFiles.length unconditionally, which
+    // printed "across 0 files" when everything purged was an unlinked file.
+    writeFileSync(join(tmpDir, 'temp.scratch.json'), '{"scratch": true}\n')
+
+    const lines: string[] = []
+    const spy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      lines.push(String(msg))
+    })
+    const code = await main(['clean'], tmpDir)
+    spy.mockRestore()
+
+    const output = lines.join('\n')
+    expect(code).toBe(0)
+    expect(output).not.toContain('across 0 files')
+    expect(output).toContain('Deleted 1 scratch files')
+  })
+
+  it('agrees with `check` on exit code for a bare, non-TTY invocation with only sub-threshold findings', async () => {
+    // The suppress/ts rule scores this directive at 0.4, below the 0.8
+    // default: check does not fail on it, and bare `alpheus` must not either.
+    writeFileSync(
+      join(tmpDir, 'legacy.ts'),
+      'export function widen(x: number): unknown {\n  // @ts-expect-error waiting on upstream types\n  return x\n}\n',
+    )
+    await gitAddAll(tmpDir)
+
+    const originalIsTTY = process.stdin.isTTY
+    try {
+      Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true })
+      const bareCode = await main([], tmpDir)
+      const checkCode = await main(['check'], tmpDir)
+      expect(bareCode).toBe(checkCode)
+      expect(bareCode).toBe(0)
+    } finally {
+      Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true })
+    }
+  })
+
+  it('restores the named snapshot when --force appears before the id', async () => {
+    const firstOriginal = 'export const x = 1\nconsole.log("first")\n'
+    writeFileSync(join(tmpDir, 'file.ts'), firstOriginal)
+    expect(await main(['clean'], tmpDir)).toBe(0)
+
+    writeFileSync(
+      join(tmpDir, 'file.ts'),
+      'export const x = 1\nconsole.log("first")\nconsole.log("second")\n',
+    )
+    expect(await main(['clean'], tmpDir)).toBe(0)
+
+    // Drift after the second purge, so restoring the first snapshot without
+    // --force would conflict and refuse.
+    writeFileSync(
+      join(tmpDir, 'file.ts'),
+      `${readFileSync(join(tmpDir, 'file.ts'), 'utf-8')}export const y = 2\n`,
+    )
+
+    const { listBackups } = await import('../src/safety/backup.ts')
+    const manifests = await listBackups(tmpDir)
+    expect(manifests.length).toBe(2)
+    const oldestId = manifests[manifests.length - 1].id
+
+    const code = await main(['restore', '--force', oldestId], tmpDir)
+    expect(code).toBe(0)
+    expect(readFileSync(join(tmpDir, 'file.ts'), 'utf-8')).toBe(firstOriginal)
+  })
+
+  it('documents --min-confidence in help output', async () => {
+    const lines: string[] = []
+    const spy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      lines.push(String(msg))
+    })
+    const code = await main(['help'], tmpDir)
+    spy.mockRestore()
+
+    expect(code).toBe(0)
+    expect(lines.join('\n')).toContain('--min-confidence')
+  })
 })
