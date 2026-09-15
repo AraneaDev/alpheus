@@ -193,6 +193,53 @@ describe('CLI Commands Dispatching', () => {
     expect(output).toContain('Nothing was purged; no changes were made.')
   })
 
+  it('does not report backupId "dry-run" for a real clean where nothing anchors', async () => {
+    // Same ambiguous, unanchorable fixture, but read the --json payload
+    // directly and assert the field value rather than just that it parses:
+    // a consumer of `alpheus clean --json` (CI, an agent) reads backupId to
+    // decide whether a real operation happened at all.
+    writeFileSync(join(tmpDir, 'app.ts'), 'console.log(a)\nconst b = 2\nconsole.log(a)\n')
+    await gitAddAll(tmpDir)
+
+    const lines: string[] = []
+    const spy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      lines.push(String(msg))
+    })
+
+    const code = await main(['clean', '--json'], tmpDir)
+
+    spy.mockRestore()
+    const parsed = JSON.parse(lines.join('\n')) as { backupId: string; backupPath: string }
+
+    expect(code).toBe(0)
+    expect(parsed.backupId).not.toBe('dry-run')
+    expect(parsed.backupId).toBe('')
+    expect(parsed.backupPath).toBe('')
+  })
+
+  it('reports backupId "dry-run" for a genuine --dry-run clean, consistent with backupPath', async () => {
+    writeFileSync(join(tmpDir, 'file.ts'), 'export const x = 1\nconsole.log("agent test");\n')
+
+    const lines: string[] = []
+    const spy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      lines.push(String(msg))
+    })
+
+    const code = await main(['clean', '--dry-run', '--json'], tmpDir)
+
+    spy.mockRestore()
+    const parsed = JSON.parse(lines.join('\n')) as { backupId: string; backupPath: string }
+
+    expect(code).toBe(0)
+    // A dry run creates no backup, so the path must agree with the "dry-run" label.
+    expect(parsed.backupId).toBe('dry-run')
+    expect(parsed.backupPath).toBe('')
+    // The file itself must be untouched, confirming this really was a dry run.
+    expect(readFileSync(join(tmpDir, 'file.ts'), 'utf-8')).toBe(
+      'export const x = 1\nconsole.log("agent test");\n',
+    )
+  })
+
   it('reports a finding whose recorded text is no longer in the file as "not-found"', async () => {
     // Stage one version of an added console.log line, then edit it again
     // without staging: the staged half of the diff still carries the old

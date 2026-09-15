@@ -1,5 +1,5 @@
 import React from 'react'
-import { describe, expect, it } from 'bun:test'
+import { describe, expect, it, spyOn } from 'bun:test'
 import { render } from 'ink-testing-library'
 import { App } from '../src/tui/app.tsx'
 import type { MiasmaItem, PurgeSummary } from '../src/scanner/types.ts'
@@ -279,5 +279,67 @@ describe('App TUI Extended Interactions', () => {
     const code = await runTui('/tmp', mockRender as unknown as typeof import('ink').render, DEMO_ITEMS)
     expect(code).toBe(0)
     expect(purgeCalled).toBe(true)
+  })
+
+  it('distinguishes demo mode from a real run that purged nothing', async () => {
+    // Real and demo can both end up with an empty backupId/backupPath (a
+    // real purge with nothing anchorable, vs. demo's simulated no-op), so
+    // the exit summary must not collapse them onto the same message.
+    const { runTui } = await import('../src/tui/app.tsx')
+    const { DEMO_ITEMS } = await import('../src/tui/demo.ts')
+    const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+
+    const mockRenderOf = (items: MiasmaItem[]) => (node: React.ReactNode) => {
+      const element = node as React.ReactElement<{
+        items: MiasmaItem[]
+        onPurge?: (items: MiasmaItem[]) => Promise<PurgeSummary>
+        onDone: (code: number) => void
+      }>
+      if (element.props.onPurge) {
+        element.props.onPurge(items).then(() => element.props.onDone(0))
+      } else {
+        element.props.onDone(0)
+      }
+      return { unmount: () => {}, rerender: () => {}, cleanup: () => {}, waitUntilExit: async () => {}, clear: () => {} }
+    }
+
+    // Real run: two identical console.log(a) lines are ambiguous, so nothing
+    // anchors and purgeMiasma creates no backup.
+    const tmpAmbiguous = `/tmp/alpheus-empty-tui-${Date.now()}`
+    mkdirSync(tmpAmbiguous, { recursive: true })
+    await Bun.spawn(['git', 'init'], { cwd: tmpAmbiguous }).exited
+    await Bun.spawn(['git', 'config', 'user.name', 'Tester'], { cwd: tmpAmbiguous }).exited
+    await Bun.spawn(['git', 'config', 'user.email', 'tester@example.com'], { cwd: tmpAmbiguous }).exited
+    writeFileSync(`${tmpAmbiguous}/app.ts`, 'console.log(a)\nconst b = 2\nconsole.log(a)\n')
+    await Bun.spawn(['git', 'add', '-A'], { cwd: tmpAmbiguous }).exited
+
+    try {
+      const realItems = await (await import('../src/engine/matcher.ts')).evaluateWorkingTree(tmpAmbiguous)
+      expect(realItems.length).toBeGreaterThan(0)
+
+      const realLines: string[] = []
+      const realSpy = spyOn(console, 'log').mockImplementation((msg: string) => {
+        realLines.push(String(msg))
+      })
+      await runTui(tmpAmbiguous, mockRenderOf(realItems) as unknown as typeof import('ink').render)
+      realSpy.mockRestore()
+      const realOutput = realLines.join('\n')
+
+      expect(realOutput).toContain('Nothing was purged; no changes were made.')
+      expect(realOutput).not.toContain('Demo mode')
+    } finally {
+      rmSync(tmpAmbiguous, { recursive: true, force: true })
+    }
+
+    // Demo run: same "nothing to show for it" outcome, but must say "Demo mode".
+    const demoLines: string[] = []
+    const demoSpy = spyOn(console, 'log').mockImplementation((msg: string) => {
+      demoLines.push(String(msg))
+    })
+    await runTui('/tmp', mockRenderOf(DEMO_ITEMS) as unknown as typeof import('ink').render, DEMO_ITEMS)
+    demoSpy.mockRestore()
+    const demoOutput = demoLines.join('\n')
+
+    expect(demoOutput).toContain('Demo mode: nothing was written.')
   })
 })

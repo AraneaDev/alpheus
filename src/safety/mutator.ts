@@ -83,7 +83,10 @@ export async function purgeMiasma(
   }))
 
   let manifest: BackupManifest | undefined
-  let backupId = 'dry-run'
+  // 'dry-run' is a true label only for an actual --dry-run invocation. A real
+  // run that skips or has nothing to back up gets '', not that label, so
+  // reading backupId never reports a dry run that didn't happen.
+  let backupId = options?.dryRun ? 'dry-run' : ''
   // Empty, not a placeholder word, so no caller can print a path for a
   // backup that was never created (dry run, skipBackup, or nothing anchored).
   let backupPath = ''
