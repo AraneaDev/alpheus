@@ -7,3 +7,6 @@ coverage/
 # Working notes, specs and plans
 /docs/specs/
 /docs/plans/
+
+# SDD workspace (superpowers)
+/.superpowers/
