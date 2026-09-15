@@ -112,6 +112,85 @@ describe('App TUI Extended Interactions', () => {
     expect(doneCode).toBe(0)
   })
 
+  it('reports purged line count, not the number of findings selected', async () => {
+    // Only one finding is selected, but its purge removed 4 lines: the status
+    // message must show the line count, not the count of selected findings.
+    const singleItem: MiasmaItem[] = [dummyItems[0]]
+
+    const dummySummary: PurgeSummary = {
+      backupId: 'test_backup',
+      backupPath: '.alpheus/backups/test',
+      modifiedFiles: [{ path: 'src/a.ts', purgedLineCount: 4 }],
+      unlinkedFiles: [],
+      unverifiable: [],
+    }
+
+    const { stdin, lastFrame } = render(
+      <App
+        items={singleItem}
+        cwd="/tmp"
+        onPurge={async () => dummySummary}
+        onDone={() => {}}
+      />,
+    )
+
+    stdin.write('\r')
+    // Read the frame before the 300ms exit timeout fires and unmounts it.
+    await Bun.sleep(100)
+
+    expect(lastFrame()).toContain('Purged 4 lines across 1 files.')
+  })
+
+  it('names the count of findings it could not verify', async () => {
+    const dummySummary: PurgeSummary = {
+      backupId: 'test_backup',
+      backupPath: '.alpheus/backups/test',
+      modifiedFiles: [{ path: 'src/a.ts', purgedLineCount: 1 }],
+      unlinkedFiles: [],
+      unverifiable: [{ filePath: 'src/b.ts', startLine: 20, reason: 'ambiguous' }],
+    }
+
+    const { stdin, lastFrame } = render(
+      <App
+        items={dummyItems}
+        cwd="/tmp"
+        onPurge={async () => dummySummary}
+        onDone={() => {}}
+      />,
+    )
+
+    stdin.write('\r')
+    // Read the frame before the 300ms exit timeout fires and unmounts it.
+    await Bun.sleep(100)
+
+    expect(lastFrame()).toContain('1 could not be verified and were left alone.')
+  })
+
+  it('says nothing about unverifiable findings when there are none', async () => {
+    const dummySummary: PurgeSummary = {
+      backupId: 'test_backup',
+      backupPath: '.alpheus/backups/test',
+      modifiedFiles: [{ path: 'src/a.ts', purgedLineCount: 1 }],
+      unlinkedFiles: [],
+      unverifiable: [],
+    }
+
+    const { stdin, lastFrame } = render(
+      <App
+        items={dummyItems}
+        cwd="/tmp"
+        onPurge={async () => dummySummary}
+        onDone={() => {}}
+      />,
+    )
+
+    stdin.write('\r')
+    // Read the frame before the 300ms exit timeout fires and unmounts it.
+    await Bun.sleep(100)
+
+    expect(lastFrame()).not.toContain('could not be verified')
+  })
+
   it('should display error message when onPurge rejects', async () => {
     const { stdin, lastFrame } = render(
       <App
