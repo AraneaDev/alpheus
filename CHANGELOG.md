@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.5](https://github.com/AraneaDev/alpheus/compare/v0.1.4...v0.1.5) (2026-09-16)
+
+
+### Continuous integration
+
+* **pr-title:** share one commit-style rule between CI and the hook ([#13](https://github.com/AraneaDev/alpheus/issues/13)) ([1c252db](https://github.com/AraneaDev/alpheus/commit/1c252dbd6670108990b61b030eb041c20994e1b0))
+
+## [0.1.4](https://github.com/AraneaDev/alpheus/compare/v0.1.3...v0.1.4) (2026-09-15)
+
+
+### Documentation
+
+* **readme:** credit the author and link the write-up ([#10](https://github.com/AraneaDev/alpheus/issues/10)) ([05912e9](https://github.com/AraneaDev/alpheus/commit/05912e99b3b07bb1dc2ced7a5f34a99de3bfe7df))
+
 ## [0.1.3](https://github.com/AraneaDev/alpheus/compare/v0.1.2...v0.1.3) (2026-09-15)
 
 

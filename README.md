@@ -204,7 +204,7 @@ Alpheus is not on npm. The CLI installs from this repository, with or without Cl
 
 <!-- x-release-please-start-version -->
 ```bash
-bun install -g github:AraneaDev/alpheus#v0.1.3
+bun install -g github:AraneaDev/alpheus#v0.1.5
 ```
 <!-- x-release-please-end -->
 
@@ -242,4 +242,5 @@ MIT.
 
 ---
 
-Built by [Aranea Development](https://aranea-development.nl).
+Built by [Tim Schipper](https://tim-schipper.nl/en) and released as open source under
+[Aranea Development](https://aranea-development.nl).
