@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.1](https://github.com/AraneaDev/alpheus/compare/v0.2.0...v0.2.1) (2026-09-16)
+
+
+### Fixes
+
+* ignore release configuration changes ([#19](https://github.com/AraneaDev/alpheus/issues/19)) ([1e19288](https://github.com/AraneaDev/alpheus/commit/1e192882c7b6d9287808bd2cf17e8b4595dc066d))
+
+
+### Documentation
+
+* refresh README and release filters ([#17](https://github.com/AraneaDev/alpheus/issues/17)) ([17b8c71](https://github.com/AraneaDev/alpheus/commit/17b8c71cb728bbbfa0f063914796e2d8c19169c1))
+
 ## [0.2.0](https://github.com/AraneaDev/alpheus/compare/v0.1.5...v0.2.0) (2026-09-16)
 
 
