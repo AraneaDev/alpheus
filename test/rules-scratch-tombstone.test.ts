@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import { matchScratchFile } from '../src/engine/rules/scratch.ts'
 import { matchTombstoneBlocks } from '../src/engine/rules/tombstone.ts'
+import { evaluateHunks } from '../src/engine/matcher.ts'
+import type { DiffHunk } from '../src/scanner/types.ts'
 
 describe('Miasma Rule: [SCRATCH]', () => {
   it('should detect temporary and scratch files in root and scratch dirs', () => {
@@ -199,5 +201,134 @@ describe('Miasma Rule: [TOMBSTONE]', () => {
     ]
     const tombstones = matchTombstoneBlocks(lines, 'typescript')
     expect(tombstones.length).toBe(0)
+  })
+})
+
+describe('tombstone spans', () => {
+  const block = [
+    '    # old_value = compute(x)',
+    '    # if old_value > 0:',
+    '    #     return old_value',
+    '    # for row in rows:',
+  ]
+
+  const hunk: DiffHunk = {
+    filePath: 'mod.py',
+    startLine: 10,
+    lineCount: 4,
+    lines: block.map((content, i) => ({ lineNumber: 10 + i, content, type: 'add' as const })),
+  }
+
+  it('spans the whole block, not just its first line', () => {
+    const items = evaluateHunks([hunk])
+    const tombstone = items.find((i) => i.category === 'TOMBSTONE')
+
+    expect(tombstone).toBeDefined()
+    expect(tombstone?.span?.startLine).toBe(10)
+    expect(tombstone?.span?.endLine).toBe(13)
+    expect(tombstone?.span?.lines).toEqual(block)
+  })
+
+  it('includes all block lines in the span', () => {
+    const items = evaluateHunks([hunk])
+    const tombstone = items.find((i) => i.category === 'TOMBSTONE')
+
+    expect(tombstone?.span?.lines).toHaveLength(4)
+    expect(tombstone?.span?.lines[1]).toBe('    # if old_value > 0:')
+    expect(tombstone?.span?.lines[2]).toBe('    #     return old_value')
+    expect(tombstone?.span?.lines[3]).toBe('    # for row in rows:')
+  })
+})
+
+describe('prose is not dead code', () => {
+  function blockOf(lines: string[]) {
+    return matchTombstoneBlocks(
+      lines.map((content, i) => ({ lineNumber: i + 1, content })),
+      'go',
+    )
+  }
+
+  it('scores an English doc comment below the acting threshold', () => {
+    const block = blockOf([
+      '// Retry wraps the call so that if the backend is unavailable',
+      '// we wait and try again, for at most three attempts.',
+      '// The caller does not need to know whether a retry happened.',
+      '// Errors from the final attempt are returned unchanged.',
+    ])
+
+    expect(block[0]?.confidence ?? 0).toBeLessThan(0.8)
+  })
+
+  it('scores genuinely commented-out code above it', () => {
+    const block = blockOf([
+      '// const result = compute(x);',
+      '// if (result > 0) {',
+      '//   return result;',
+      '// }',
+    ])
+
+    expect(block[0]?.confidence ?? 0).toBeGreaterThanOrEqual(0.8)
+  })
+
+  it('scores a commented-out Python block above it', () => {
+    const block = blockOf([
+      '# old_value = compute(x)',
+      '# if old_value > 0:',
+      '#     return old_value',
+      '# for row in rows:',
+    ])
+
+    expect(block[0]?.confidence ?? 0).toBeGreaterThanOrEqual(0.8)
+  })
+
+  it('scores a commented-out block that mixes prose and code above it', () => {
+    const block = blockOf([
+      '// disabled for now, see AL-441',
+      '// const client = new Client({ retries: 3 });',
+      '// client.connect();',
+      '// return client;',
+    ])
+
+    expect(block[0]?.confidence ?? 0).toBeGreaterThanOrEqual(0.8)
+  })
+})
+
+describe('tombstone languages allowlist', () => {
+  function hunkFor(filePath: string, lines: string[]): DiffHunk {
+    return {
+      filePath,
+      startLine: 1,
+      lineCount: lines.length,
+      lines: lines.map((content, i) => ({ lineNumber: i + 1, content, type: 'add' as const })),
+    }
+  }
+
+  const codeLikeHashComments = [
+    '# old_value = compute(x)',
+    '# if old_value > 0:',
+    '#     return old_value',
+    '# for row in rows:',
+  ]
+
+  it('still scans an extensionless file for commented-out code', () => {
+    const items = evaluateHunks([hunkFor('deploy', codeLikeHashComments)])
+    expect(items.some((i) => i.category === 'TOMBSTONE')).toBe(true)
+  })
+
+  it('still scans a .txt file for commented-out code', () => {
+    const items = evaluateHunks([hunkFor('notes.txt', codeLikeHashComments)])
+    expect(items.some((i) => i.category === 'TOMBSTONE')).toBe(true)
+  })
+
+  it('never reads a markdown heading as a commented-out code block', () => {
+    const items = evaluateHunks([
+      hunkFor('README.md', [
+        '# const config = load();',
+        '# if (config.debug) {',
+        '# console.log(config);',
+        '# }',
+      ]),
+    ])
+    expect(items.some((i) => i.category === 'TOMBSTONE')).toBe(false)
   })
 })

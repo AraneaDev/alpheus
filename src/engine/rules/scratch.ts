@@ -1,4 +1,5 @@
 import { basename } from 'path'
+import type { MatchContext, Rule, RuleMatch } from './types.ts'
 
 /**
  * Checks whether an untracked file matches scratch or temporary artifact heuristics.
@@ -36,3 +37,30 @@ export function matchScratchFile(relPath: string): string | null {
 
   return null
 }
+
+/**
+ * Scratch or temporary files left untracked instead of being deleted.
+ *
+ * `matchScratchFile` judges a whole file path rather than a line, so this
+ * rule reports its single match (if any) as spanning the context's one
+ * nominal line. `evaluateUntracked` looks this entry up in the registry by
+ * category and calls it directly, so the confidence split below is the one
+ * and only place scratch findings are scored.
+ */
+export const scratchRules: Rule[] = [
+  {
+    id: 'scratch/untracked',
+    category: 'SCRATCH',
+    languages: 'any',
+    match(ctx: MatchContext): RuleMatch[] {
+      const explanation = matchScratchFile(ctx.filePath)
+      if (!explanation) return []
+
+      // An explicit .tmp/.bak/.scratch extension names itself as disposable;
+      // a generic name (scratch.py, dump.json, t.py) only resembles one.
+      const confidence = explanation === 'Untracked temporary file extension' ? 0.9 : 0.7
+
+      return [{ startLine: 1, endLine: 1, explanation, confidence }]
+    },
+  },
+]

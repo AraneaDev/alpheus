@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-js/master/packages/api/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "command",
+  "commandRunner": { "command": "bun test" },
+  "mutate": ["src/safety/**/*.ts", "src/engine/anchor.ts"],
+  "disableTypeChecks": false,
+  "thresholds": { "high": 90, "low": 80, "break": 75 },
+  "reporters": ["clear-text", "progress"]
+}

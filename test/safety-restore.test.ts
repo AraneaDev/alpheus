@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { createSafetyBackup, listBackups } from '../src/safety/backup.ts'
+import { purgeMiasma } from '../src/safety/mutator.ts'
 import { restoreBackup } from '../src/safety/restore.ts'
 import { theme } from '../src/tui/theme.ts'
-import type { MiasmaCategory, MiasmaItem } from '../src/scanner/types.ts'
+import type { BackupManifest, MiasmaCategory, MiasmaItem } from '../src/scanner/types.ts'
 
 describe('Safety Backup & Restore Edge Cases', () => {
   const tmpDir = join('/tmp', `alpheus-safety-edge-${Date.now()}`)
@@ -38,9 +39,9 @@ describe('Safety Backup & Restore Edge Cases', () => {
     const item: MiasmaItem = {
       id: 'i-1',
       filePath: 'test.ts',
-      lineNumber: 1,
       category: 'LOG',
-      matchedContent: 'console.log()',
+      ruleId: 'log/typescript',
+      span: { startLine: 1, endLine: 1, lines: ['console.log()'] },
       explanation: 'log',
       confidence: 1.0,
     }
@@ -81,5 +82,220 @@ describe('Safety Backup & Restore Edge Cases', () => {
     writeFileSync(join(backupDir, 'manifest.json'), JSON.stringify(manifest))
     const restored = await restoreBackup(tmpDir, 'test_missing')
     expect(restored).toEqual([])
+  })
+})
+
+describe('restore verification', () => {
+  const TEST_DIR = join('/tmp', `alpheus-restore-verify-${Date.now()}`)
+
+  beforeEach(() => {
+    if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true })
+    mkdirSync(TEST_DIR, { recursive: true })
+  })
+
+  afterEach(() => {
+    rmSync(TEST_DIR, { recursive: true, force: true })
+  })
+
+  it('records sha256After once the purge has run', async () => {
+    writeFileSync(join(TEST_DIR, 'app.ts'), 'const a = 1\nconsole.log(a)\n')
+
+    const summary = await purgeMiasma(TEST_DIR, [
+      {
+        id: 'log-1',
+        filePath: 'app.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        span: { startLine: 2, endLine: 2, lines: ['console.log(a)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+    ])
+
+    const manifestPath = join(TEST_DIR, '.alpheus/backups', summary.backupId, 'manifest.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as BackupManifest
+
+    expect(manifest.files[0].sha256Before).toBeDefined()
+    expect(manifest.files[0].sha256After).toBeDefined()
+    expect(manifest.files[0].sha256After).not.toBe(manifest.files[0].sha256Before)
+  })
+
+  it('refuses to restore over a file edited since the purge', async () => {
+    writeFileSync(join(TEST_DIR, 'app.ts'), 'const a = 1\nconsole.log(a)\n')
+
+    await purgeMiasma(TEST_DIR, [
+      {
+        id: 'log-1',
+        filePath: 'app.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        span: { startLine: 2, endLine: 2, lines: ['console.log(a)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+    ])
+
+    // An hour of work after the purge.
+    writeFileSync(join(TEST_DIR, 'app.ts'), 'const a = 1\nconst valuable = work()\n')
+
+    await expect(restoreBackup(TEST_DIR)).rejects.toThrow(/app\.ts/)
+    expect(readFileSync(join(TEST_DIR, 'app.ts'), 'utf-8')).toContain('valuable')
+  })
+
+  it('restores over an edited file when forced', async () => {
+    writeFileSync(join(TEST_DIR, 'app.ts'), 'const a = 1\nconsole.log(a)\n')
+
+    await purgeMiasma(TEST_DIR, [
+      {
+        id: 'log-1',
+        filePath: 'app.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        span: { startLine: 2, endLine: 2, lines: ['console.log(a)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+    ])
+
+    writeFileSync(join(TEST_DIR, 'app.ts'), 'const a = 1\nsomething else\n')
+    const restored = await restoreBackup(TEST_DIR, undefined, { force: true })
+
+    expect(restored).toContain('app.ts')
+    expect(readFileSync(join(TEST_DIR, 'app.ts'), 'utf-8')).toContain('console.log(a)')
+  })
+
+  it('restores cleanly when nothing has changed since the purge', async () => {
+    writeFileSync(join(TEST_DIR, 'app.ts'), 'const a = 1\nconsole.log(a)\n')
+
+    await purgeMiasma(TEST_DIR, [
+      {
+        id: 'log-1',
+        filePath: 'app.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        span: { startLine: 2, endLine: 2, lines: ['console.log(a)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+    ])
+
+    const restored = await restoreBackup(TEST_DIR)
+    expect(restored).toContain('app.ts')
+    expect(readFileSync(join(TEST_DIR, 'app.ts'), 'utf-8')).toContain('console.log(a)')
+  })
+
+  it('rejects a manifest whose originalPath escapes the repository', async () => {
+    const id = 'evil_snapshot'
+    const dir = join(TEST_DIR, '.alpheus/backups', id)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'payload'), 'pwned\n')
+    writeFileSync(
+      join(dir, 'manifest.json'),
+      JSON.stringify({
+        version: '1.0',
+        id,
+        timestamp: new Date().toISOString(),
+        workingDirectory: TEST_DIR,
+        files: [{ originalPath: '../../escaped.txt', backupRelPath: 'payload', action: 'modify' }],
+      }),
+    )
+
+    await expect(restoreBackup(TEST_DIR, id)).rejects.toThrow(/outside the repository/)
+  })
+
+  it('refuses to restore over a new file created where a purged file was deleted', async () => {
+    writeFileSync(join(TEST_DIR, 'debug.tmp'), 'throwaway\n')
+
+    await purgeMiasma(TEST_DIR, [
+      {
+        id: 'scratch-1',
+        filePath: 'debug.tmp',
+        category: 'SCRATCH',
+        ruleId: 'scratch/untracked',
+        explanation: 'Scratch file',
+        confidence: 1,
+      },
+    ])
+
+    expect(existsSync(join(TEST_DIR, 'debug.tmp'))).toBe(false)
+
+    // Unrelated real work lands at the same path after the purge.
+    writeFileSync(join(TEST_DIR, 'debug.tmp'), 'real work\n')
+
+    await expect(restoreBackup(TEST_DIR)).rejects.toThrow(/debug\.tmp/)
+    expect(readFileSync(join(TEST_DIR, 'debug.tmp'), 'utf-8')).toBe('real work\n')
+
+    const restored = await restoreBackup(TEST_DIR, undefined, { force: true })
+    expect(restored).toContain('debug.tmp')
+    expect(readFileSync(join(TEST_DIR, 'debug.tmp'), 'utf-8')).toBe('throwaway\n')
+  })
+
+  it('refuses to restore a modify entry with no sha256After, and still restores with --force', async () => {
+    // A missing sha256After means finalizeSafetyBackup never got to write it,
+    // typically because a later file in the same purge threw and aborted the
+    // mutation loop partway through. The file on disk right now could be the
+    // purge's own (unrecorded) output, or further work done on top of it:
+    // there is no hash to tell them apart, so it must be treated as a
+    // conflict rather than silently overwritten.
+    const id = 'aborted_snapshot'
+    const backupDir = join(TEST_DIR, '.alpheus/backups', id)
+    mkdirSync(backupDir, { recursive: true })
+    writeFileSync(join(backupDir, 'app.ts'), 'const a = 1\nconsole.log(a)\n')
+    writeFileSync(
+      join(backupDir, 'manifest.json'),
+      JSON.stringify({
+        version: '1.0',
+        id,
+        timestamp: new Date().toISOString(),
+        workingDirectory: TEST_DIR,
+        files: [{ originalPath: 'app.ts', backupRelPath: 'app.ts', action: 'modify', sha256Before: 'irrelevant' }],
+      }),
+    )
+
+    writeFileSync(join(TEST_DIR, 'app.ts'), 'const a = 1\n')
+
+    await expect(restoreBackup(TEST_DIR, id)).rejects.toThrow(/app\.ts/)
+    expect(readFileSync(join(TEST_DIR, 'app.ts'), 'utf-8')).toBe('const a = 1\n')
+
+    const restored = await restoreBackup(TEST_DIR, id, { force: true })
+    expect(restored).toContain('app.ts')
+    expect(readFileSync(join(TEST_DIR, 'app.ts'), 'utf-8')).toBe('const a = 1\nconsole.log(a)\n')
+  })
+
+  it('leaves non-conflicting files untouched when another file in the same restore conflicts', async () => {
+    writeFileSync(join(TEST_DIR, 'safe.ts'), 'const a = 1\nconsole.log(a)\n')
+    writeFileSync(join(TEST_DIR, 'conflict.ts'), 'const b = 1\nconsole.log(b)\n')
+
+    await purgeMiasma(TEST_DIR, [
+      {
+        id: 'log-safe',
+        filePath: 'safe.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        span: { startLine: 2, endLine: 2, lines: ['console.log(a)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+      {
+        id: 'log-conflict',
+        filePath: 'conflict.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        span: { startLine: 2, endLine: 2, lines: ['console.log(b)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+    ])
+
+    // Work happens on conflict.ts only; safe.ts is left exactly as the purge left it.
+    writeFileSync(join(TEST_DIR, 'conflict.ts'), 'const b = 1\nconst valuable = work()\n')
+
+    const safeMtimeBefore = statSync(join(TEST_DIR, 'safe.ts')).mtimeMs
+
+    await expect(restoreBackup(TEST_DIR)).rejects.toThrow(/conflict\.ts/)
+
+    expect(readFileSync(join(TEST_DIR, 'conflict.ts'), 'utf-8')).toContain('valuable')
+    expect(statSync(join(TEST_DIR, 'safe.ts')).mtimeMs).toBe(safeMtimeBefore)
+    expect(readFileSync(join(TEST_DIR, 'safe.ts'), 'utf-8')).toBe('const a = 1\n')
   })
 })

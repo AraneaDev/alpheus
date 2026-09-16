@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { matchSuppressMiasma } from '../src/engine/rules/suppress.ts'
 import { matchPathMiasma } from '../src/engine/rules/path.ts'
+import { RULES } from '../src/engine/rules/registry.ts'
 
 describe('Miasma Rule: [SUPPRESS]', () => {
   it('should detect TypeScript/JavaScript linter and type suppressions', () => {
@@ -104,5 +105,47 @@ describe('Miasma Rule: [PATH]', () => {
     expect(matchPathMiasma('const tmp = "/tmp/test.sock";')).toBeNull()
     expect(matchPathMiasma('/homecoming/banner.png')).toBeNull()
     expect(matchPathMiasma('C:\\UsersProfile\\config.ini')).toBeNull()
+  })
+})
+
+describe('confidence separates the load-bearing from the lazy', () => {
+  it('scores @ts-ignore high and @ts-expect-error low', () => {
+    const ctx = (content: string) => ({
+      filePath: 'a.ts',
+      lang: 'typescript' as const,
+      lines: [{ lineNumber: 1, content }],
+    })
+
+    const rule = RULES.find((r) => r.id === 'suppress/ts')
+    const ignore = rule?.match(ctx('// @ts-ignore'))[0]
+    const expectError = rule?.match(ctx('// @ts-expect-error'))[0]
+
+    expect(ignore?.confidence).toBeGreaterThanOrEqual(0.8)
+    expect(expectError?.confidence).toBeLessThan(0.5)
+  })
+})
+
+describe('CI runner paths are not workstation paths', () => {
+  const rule = () => RULES.find((r) => r.id === 'path/posix-home')
+
+  const ctx = (filePath: string, content: string) => ({
+    filePath,
+    lang: 'unknown' as const,
+    lines: [{ lineNumber: 1, content }],
+  })
+
+  it('scores a laptop home path high', () => {
+    const match = rule()?.match(ctx('src/config.ts', "const p = '/home/tim/projects/x'"))[0]
+    expect(match?.confidence).toBeGreaterThanOrEqual(0.8)
+  })
+
+  it('scores a CI runner path low', () => {
+    const match = rule()?.match(ctx('.github/workflows/ci.yml', '    - run: cp build /home/runner/work/out'))[0]
+    expect(match?.confidence).toBeLessThan(0.5)
+  })
+
+  it('scores any home path inside a workflow file low', () => {
+    const match = rule()?.match(ctx('.github/workflows/ci.yml', '    - run: cp build /home/tim/out'))[0]
+    expect(match?.confidence).toBeLessThan(0.5)
   })
 })

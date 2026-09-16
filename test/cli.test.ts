@@ -8,9 +8,9 @@ describe('CLI Reporters', () => {
     {
       id: '1',
       filePath: 'src/auth.ts',
-      lineNumber: 42,
       category: 'LOG',
-      matchedContent: 'console.log("token")',
+      ruleId: 'log/typescript',
+      span: { startLine: 42, endLine: 42, lines: ['console.log("token")'] },
       explanation: 'Ephemeral console statement',
       confidence: 1,
     },
@@ -18,7 +18,7 @@ describe('CLI Reporters', () => {
       id: '2',
       filePath: 'scratch.py',
       category: 'SCRATCH',
-      matchedContent: 'scratch.py',
+      ruleId: 'scratch/untracked',
       explanation: 'Untracked scratch file',
       confidence: 1,
     },
@@ -30,7 +30,7 @@ describe('CLI Reporters', () => {
     expect(table).toContain('[SCRATCH]')
     expect(table).toContain('src/auth.ts:42')
     expect(table).toContain('scratch.py')
-    expect(table).toContain('2 agent miasma items found')
+    expect(table).toContain('Alpheus found 2 agent miasma items')
   })
 
   it('should return clean message when no items present', () => {

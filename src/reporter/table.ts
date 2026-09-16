@@ -12,7 +12,7 @@ export function formatTable(items: MiasmaItem[]): string {
   }
 
   const out: string[] = []
-  out.push(`Alpheus — ${items.length} agent miasma ${items.length === 1 ? 'item' : 'items'} found in working tree:`)
+  out.push(`Alpheus found ${items.length} agent miasma ${items.length === 1 ? 'item' : 'items'} in the working tree:`)
   out.push('')
 
   // Group by category
@@ -24,8 +24,9 @@ export function formatTable(items: MiasmaItem[]): string {
 
     out.push(` [${cat}] (${catItems.length})`)
     for (const item of catItems) {
-      const loc = item.lineNumber ? `${item.filePath}:${item.lineNumber}` : item.filePath
-      out.push(`   ${loc.padEnd(35)} ${item.matchedContent} — ${item.explanation}`)
+      const loc = item.span?.startLine ? `${item.filePath}:${item.span.startLine}` : item.filePath
+      const matchedContent = item.span?.lines[0]?.trim() ?? item.filePath
+      out.push(`   ${loc.padEnd(35)} ${matchedContent}, ${item.explanation} (confidence ${item.confidence.toFixed(2)})`)
     }
     out.push('')
   }

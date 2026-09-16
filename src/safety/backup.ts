@@ -1,5 +1,5 @@
 import { createHash } from 'crypto'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import type { BackupManifest, BackupManifestFile, MiasmaItem } from '../scanner/types.ts'
 
@@ -22,19 +22,26 @@ function generateSnapshotId(): string {
 }
 
 /**
- * Appends `.alpheus/` to `.git/info/exclude` if git repository exists.
+ * Appends `.alpheus/` to `.git/info/exclude`, creating `.git/info` if needed.
+ *
+ * @param cwd - Repository root directory.
  */
 function ensureGitExclude(cwd: string): void {
-  const excludePath = join(cwd, '.git/info/exclude')
-  if (existsSync(join(cwd, '.git')) && existsSync(excludePath)) {
-    try {
-      const content = readFileSync(excludePath, 'utf-8')
-      if (!content.includes('.alpheus')) {
-        writeFileSync(excludePath, `${content.trimEnd()}\n.alpheus/\n`)
-      }
-    } catch {
-      // Ignore if permission denied or non-standard git config
+  const gitPath = join(cwd, '.git')
+  if (!existsSync(gitPath)) return
+
+  const infoDir = join(cwd, '.git/info')
+  const excludePath = join(infoDir, 'exclude')
+
+  try {
+    mkdirSync(infoDir, { recursive: true })
+    const content = existsSync(excludePath) ? readFileSync(excludePath, 'utf-8') : ''
+    if (!content.includes('.alpheus')) {
+      writeFileSync(excludePath, `${content.trimEnd()}\n.alpheus/\n`.trimStart())
     }
+  } catch {
+    // A linked worktree keeps its git directory elsewhere, and the path may be
+    // read-only. Failing to exclude is not worth failing a purge over.
   }
 }
 
@@ -46,9 +53,25 @@ function ensureGitExclude(cwd: string): void {
  * @returns The created BackupManifest.
  */
 export async function createSafetyBackup(cwd: string, items: MiasmaItem[]): Promise<BackupManifest> {
-  const snapshotId = generateSnapshotId()
-  const backupDir = join(cwd, '.alpheus/backups', snapshotId)
-  mkdirSync(backupDir, { recursive: true })
+  const backupsRoot = join(cwd, '.alpheus/backups')
+  mkdirSync(backupsRoot, { recursive: true })
+
+  let snapshotId = generateSnapshotId()
+  let backupDir = join(backupsRoot, snapshotId)
+
+  // A non-recursive mkdir on the leaf throws EEXIST rather than silently
+  // adopting a directory another purge is already writing into.
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      mkdirSync(backupDir)
+      break
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST' || attempt === 9) throw err
+      snapshotId = generateSnapshotId()
+      backupDir = join(backupsRoot, snapshotId)
+    }
+  }
+
   ensureGitExclude(cwd)
 
   // Deduplicate files
@@ -74,7 +97,7 @@ export async function createSafetyBackup(cwd: string, items: MiasmaItem[]): Prom
 
     const isScratch = fileItems.some((i) => i.category === 'SCRATCH')
     const purgedLines = fileItems
-      .map((i) => i.lineNumber)
+      .map((i) => i.span?.startLine)
       .filter((ln): ln is number => typeof ln === 'number')
 
     manifestFiles.push({
@@ -96,7 +119,73 @@ export async function createSafetyBackup(cwd: string, items: MiasmaItem[]): Prom
 
   writeFileSync(join(backupDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8')
 
+  await pruneBackups(cwd)
+
   return manifest
+}
+
+/** How many snapshots to keep. Becomes configurable in 0.3.0. */
+const RETAIN_SNAPSHOTS = 20
+
+/**
+ * Deletes all but the most recent snapshots.
+ *
+ * @param cwd - Repository root directory.
+ */
+async function pruneBackups(cwd: string): Promise<void> {
+  const manifests = await listBackups(cwd)
+
+  for (const stale of manifests.slice(RETAIN_SNAPSHOTS)) {
+    try {
+      rmSync(join(cwd, '.alpheus/backups', stale.id), { recursive: true, force: true })
+    } catch {
+      // Pruning runs before any file is mutated, so a locked or
+      // permission-denied old snapshot is housekeeping, not data loss.
+      // Losing the ability to tidy old snapshots must not cost the ability
+      // to purge at all, the same tolerance ensureGitExclude applies above.
+    }
+  }
+}
+
+/**
+ * Rewrites a manifest after mutation, recording each file's resulting hash
+ * and the line numbers actually removed.
+ *
+ * `sha256After` is what lets a restore tell an untouched file from one the
+ * author has since worked on. Without it a restore is an unconditional
+ * overwrite of whatever is on disk.
+ *
+ * `purgedLines` is written a second time here, replacing the value
+ * `createSafetyBackup` recorded from each finding's original
+ * `span.startLine`. That first value is a pre-anchor line number, which may
+ * not be where the line actually was: anchoring can resolve a stale diff
+ * coordinate to a different line before the mutator ever splices it out. The
+ * manifest is meant to record what was actually purged, so once mutation has
+ * run, `resolvedPurgedLines` (the anchored, post-splice line numbers, keyed
+ * by file) is what goes in it.
+ *
+ * @param cwd - Repository root directory.
+ * @param manifest - The manifest created before mutation.
+ * @param resolvedPurgedLines - The resolved line numbers actually removed
+ *   from each modified file, keyed by `originalPath`. A file absent from
+ *   this map (an unlink, or one with nothing to report) keeps whatever
+ *   `createSafetyBackup` already wrote.
+ */
+export function finalizeSafetyBackup(
+  cwd: string,
+  manifest: BackupManifest,
+  resolvedPurgedLines?: Map<string, number[]>,
+): void {
+  for (const file of manifest.files) {
+    const absPath = join(cwd, file.originalPath)
+    file.sha256After = existsSync(absPath) ? computeSha256(readFileSync(absPath)) : undefined
+
+    const resolved = resolvedPurgedLines?.get(file.originalPath)
+    if (resolved) file.purgedLines = resolved
+  }
+
+  const manifestPath = join(cwd, '.alpheus/backups', manifest.id, 'manifest.json')
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
 }
 
 /**

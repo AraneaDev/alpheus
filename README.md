@@ -83,17 +83,29 @@ the same way twice.
 
 ```text
 alpheus                      Interactive review and purge
-alpheus check [flags]        Non-interactive scan; exits 1 when it finds anything
-alpheus clean [flags]        Purge everything found, with a backup
+alpheus check [flags]        Non-interactive scan; exits 1 on anything confident enough to act on
+alpheus clean [flags]        Purge what it is confident about, with a backup
 alpheus restore [id]         Restore the working tree from a snapshot (default: the latest)
 alpheus backups              List the snapshots there are
 alpheus demo                 The interactive review, with made-up findings
 alpheus help                 Usage and flags
 ```
 
-`--json` and `--quiet` belong to `check`: the first prints the findings as JSON, the second drops
-the table and leaves only the exit code. `--dry-run` belongs to `clean` and reports what would have
-gone without removing it.
+`--json` prints machine-readable output and works for every command. `--quiet` belongs to `check`
+and drops the table, leaving only the exit code. `--dry-run` belongs to `clean` and reports what
+would have gone without removing it. `--min-confidence <0..1>` moves the bar described below, and
+`--force` belongs to `restore`.
+
+## How sure it has to be
+
+Every finding carries a confidence. `clean` and the interactive review act at 0.8 and above, and
+report everything below that as needing your eye instead of removing it. A `console.log` left in a
+fix scores 0.95. A `@ts-expect-error` scores 0.4, because unlike `@ts-ignore` it fails the build
+when it is no longer needed, so it is usually load-bearing. A `/home/runner/` path inside a CI
+workflow scores 0.3, because that is how the build works rather than a path to one machine.
+
+`--min-confidence 0` acts on everything, which is what `alpheus check` used to do before it learned
+to tell these apart.
 
 With no TTY, plain `alpheus` prints the same table `check` does and exits the same way, which is
 what makes it usable from a script or a git hook.
@@ -114,7 +126,11 @@ right with the line to be removed marked where it sits.
 
 Before a line is removed or a scratch file unlinked, every affected file is copied into
 `.alpheus/backups/<timestamp>_<id>/`, beside a `manifest.json` that records each file's sha256 as
-it was and what was about to happen to it.
+it was, what was about to happen to it, and its sha256 once the purge had finished.
+
+That last hash is what lets a restore tell an untouched file from one you have worked on since. If
+a file changed after the purge, `alpheus restore` refuses and names every file it would have
+overwritten, and nothing on disk is altered. `--force` restores anyway.
 
 ```bash
 alpheus restore          # back to the state before the most recent purge
@@ -134,9 +150,11 @@ finding points at.
 `/alpheus` runs the scan and hands the findings to the agent to present.
 
 A `PreToolUse` hook watches Bash calls for a `git commit` and, when the working tree still holds
-findings, names the first five of them before the commit runs. That hook warns and stops there: the
-commit goes through, and the text lands in your transcript rather than in the model's context, so
-it is a note to you rather than an instruction to Claude.
+findings it is confident about, names the first five of them and blocks the commit. The findings
+reach the model, so the agent can clean up after itself rather than committing over the top.
+
+Findings below the confidence bar never block. Set `ALPHEUS_HOOK_MODE=warn` to have the hook report
+without stopping the commit, or `ALPHEUS_HOOK_MODE=off` to disable it.
 
 ## Requirements
 

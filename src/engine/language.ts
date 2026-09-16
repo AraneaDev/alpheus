@@ -9,6 +9,8 @@ export type SupportedLanguage =
   | 'go'
   | 'php'
   | 'shell'
+  | 'markdown'
+  | 'yaml'
   | 'unknown'
 
 /**
@@ -44,6 +46,12 @@ export function detectLanguage(filePath: string): SupportedLanguage {
     case 'bash':
     case 'zsh':
       return 'shell'
+    case 'md':
+    case 'mdx':
+      return 'markdown'
+    case 'yml':
+    case 'yaml':
+      return 'yaml'
     default:
       return 'unknown'
   }

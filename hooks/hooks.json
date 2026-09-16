@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "bun \"$CLAUDE_PLUGIN_ROOT/src/hooks/pre-tool-use.ts\"",
-            "timeout": 3
+            "timeout": 10
           }
         ]
       }

@@ -20,6 +20,10 @@ describe('Language Classifier', () => {
     expect(detectLanguage('bin/deploy.sh')).toBe('shell')
     expect(detectLanguage('bin/deploy.bash')).toBe('shell')
     expect(detectLanguage('bin/deploy.zsh')).toBe('shell')
+    expect(detectLanguage('docs/guide.md')).toBe('markdown')
+    expect(detectLanguage('docs/guide.mdx')).toBe('markdown')
+    expect(detectLanguage('config/ci.yml')).toBe('yaml')
+    expect(detectLanguage('config/ci.yaml')).toBe('yaml')
     expect(detectLanguage('unknown.xyz')).toBe('unknown')
     expect(detectLanguage('no_extension_file')).toBe('unknown')
   })
@@ -85,4 +89,22 @@ describe('Miasma Rule: [LOG]', () => {
     expect(matchLogMiasma('$x = 1;', 'php')).toBeNull()
     expect(matchLogMiasma('console.log("hi")', 'unknown')).toBeNull()
   })
+})
+
+describe('PHP dump detection does not fire inside ordinary identifiers', () => {
+  const cases = ['$cart->add($item);', '$grid->add($row);', '$x = add(1, 2);', 'heapdump_start();']
+
+  for (const line of cases) {
+    it(`leaves ${line} alone`, () => {
+      expect(matchLogMiasma(line, 'php')).toBeNull()
+    })
+  }
+
+  const hits = ['dd($user);', 'var_dump($x);', 'print_r($arr);', '$this->dump($v);']
+
+  for (const line of hits) {
+    it(`still catches ${line}`, () => {
+      expect(matchLogMiasma(line, 'php')).not.toBeNull()
+    })
+  }
 })

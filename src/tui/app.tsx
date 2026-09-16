@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Box, render, Text, useApp, useInput, useWindowSize } from 'ink'
 import type { MiasmaItem, PurgeSummary } from '../scanner/types.ts'
 import { evaluateWorkingTree } from '../engine/matcher.ts'
+import { DEFAULT_MIN_CONFIDENCE } from '../engine/threshold.ts'
 import { purgeMiasma } from '../safety/mutator.ts'
 import { DiffPreview } from './components/diff-preview.tsx'
 import { FindingList } from './components/finding-list.tsx'
@@ -37,7 +38,9 @@ export const App: React.FC<AppProps> = ({
 
   const [cursorIndex, setCursorIndex] = useState(0)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    () => new Set(items.map((i) => i.id)), // Selected by default
+    // Only findings Alpheus would act on unattended start ticked; anything
+    // below the threshold is still shown and still selectable by hand.
+    () => new Set(items.filter((i) => i.confidence >= DEFAULT_MIN_CONFIDENCE).map((i) => i.id)),
   )
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -82,8 +85,18 @@ export const App: React.FC<AppProps> = ({
 
       onPurge(chosen)
         .then((summary) => {
+          const skipped = summary.unverifiable.length > 0
+            ? ` ${summary.unverifiable.length} could not be verified and were left alone.`
+            : ''
+          const purgedLines = summary.modifiedFiles.reduce((n, f) => n + f.purgedLineCount, 0)
+          const backupNote = summary.backupPath
+            ? ` Backup: ${summary.backupPath}`
+            : summary.backupId === 'demo'
+              ? ' Demo mode: nothing was written.'
+              : ' No changes were made.'
+
           setStatusMessage(
-            `Purged ${chosen.length} items across ${summary.modifiedFiles.length} files. Backup: ${summary.backupPath}`,
+            `Purged ${purgedLines} lines across ${summary.modifiedFiles.length} files.${skipped}${backupNote}`,
           )
           setTimeout(() => {
             exit()
@@ -113,7 +126,7 @@ export const App: React.FC<AppProps> = ({
       {/* Header */}
       <Box borderStyle="round" borderColor="cyan" paddingX={1} width="100%">
         <Text bold color="cyan" wrap="truncate-end">
-          Alpheus — Diverting the river through your working tree. Select items to purge.
+          Alpheus, diverting the river through your working tree. Select items to purge.
         </Text>
       </Box>
 
@@ -183,10 +196,11 @@ export async function runTui(
           }
         }
         const summary: PurgeSummary = {
-          backupId: 'demo_snapshot',
-          backupPath: '.alpheus/backups/demo_snapshot',
+          backupId: 'demo',
+          backupPath: '',
           modifiedFiles,
           unlinkedFiles: chosen.filter((i) => i.category === 'SCRATCH').map((i) => i.filePath),
+          unverifiable: [],
         }
         lastSummary = summary
         return summary
@@ -207,11 +221,23 @@ export async function runTui(
     )
   }).then((code) => {
     if (lastSummary) {
-      console.log(`Alpheus purged ${lastSummary.modifiedFiles.reduce((acc, f) => acc + f.purgedLineCount, 0)} items across ${lastSummary.modifiedFiles.length} files.`)
+      const purgedLines = lastSummary.modifiedFiles.reduce((acc, f) => acc + f.purgedLineCount, 0)
+      const linesWord = purgedLines === 1 ? 'line' : 'lines'
+      const filesWord = lastSummary.modifiedFiles.length === 1 ? 'file' : 'files'
+
+      if (lastSummary.modifiedFiles.length > 0) {
+        console.log(`Alpheus purged ${purgedLines} ${linesWord} across ${lastSummary.modifiedFiles.length} ${filesWord}.`)
+      }
       if (lastSummary.unlinkedFiles.length > 0) {
         console.log(`Deleted ${lastSummary.unlinkedFiles.length} scratch files: ${lastSummary.unlinkedFiles.join(', ')}`)
       }
-      console.log(`Backup saved to ${lastSummary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
+      if (lastSummary.backupPath) {
+        console.log(`Backup saved to ${lastSummary.backupPath}. (Restore anytime via \`alpheus restore\`)`)
+      } else if (lastSummary.backupId === 'demo') {
+        console.log('Demo mode: nothing was written.')
+      } else {
+        console.log('Nothing was purged; no changes were made.')
+      }
     }
     return code
   })

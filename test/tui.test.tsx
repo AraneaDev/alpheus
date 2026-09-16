@@ -11,9 +11,9 @@ describe('Interactive Ink TUI App', () => {
     {
       id: 'item-1',
       filePath: 'src/test.ts',
-      lineNumber: 10,
       category: 'LOG',
-      matchedContent: 'console.log("val")',
+      ruleId: 'log/typescript',
+      span: { startLine: 10, endLine: 10, lines: ['console.log("val")'] },
       explanation: 'Debug log',
       confidence: 1,
     },
@@ -21,7 +21,7 @@ describe('Interactive Ink TUI App', () => {
       id: 'item-2',
       filePath: 'scratch.py',
       category: 'SCRATCH',
-      matchedContent: 'scratch.py',
+      ruleId: 'scratch/untracked',
       explanation: 'Scratch file',
       confidence: 1,
     },
@@ -33,6 +33,7 @@ describe('Interactive Ink TUI App', () => {
       backupPath: '.alpheus/backups/test',
       modifiedFiles: [{ path: 'src/test.ts', purgedLineCount: 1 }],
       unlinkedFiles: ['scratch.py'],
+      unverifiable: [],
     }
   }
 
@@ -47,7 +48,7 @@ describe('Interactive Ink TUI App', () => {
     )
 
     const frame = lastFrame() || ''
-    expect(frame).toContain('Alpheus — Diverting the river through your working tree')
+    expect(frame).toContain('Alpheus, diverting the river through your working tree')
     expect(frame).toContain('[LOG]')
     expect(frame).toContain('[SCRATCH]')
     expect(frame).toContain('src/test.ts:10')
@@ -101,12 +102,91 @@ describe('Interactive Ink TUI App', () => {
     expect(lastFrame()).toContain('Purge Selected (2/2)')
   })
 
+  it('starts with only findings at or above the confidence threshold selected', () => {
+    const mixedItems: MiasmaItem[] = [
+      {
+        id: 'high',
+        filePath: 'a.ts',
+        category: 'LOG',
+        ruleId: 'log/js-console',
+        span: { startLine: 1, endLine: 1, lines: ['console.log(1)'] },
+        explanation: 'Debug log',
+        confidence: 0.95,
+      },
+      {
+        id: 'low',
+        filePath: 'b.ts',
+        category: 'SUPPRESS',
+        ruleId: 'suppress/ts',
+        span: { startLine: 2, endLine: 2, lines: ['// @ts-expect-error'] },
+        explanation: 'check whether it is still needed',
+        confidence: 0.4,
+      },
+    ]
+
+    const { lastFrame } = render(
+      <App
+        items={mixedItems}
+        cwd="/mock/dir"
+        onPurge={mockPurge}
+        onDone={() => {}}
+      />,
+    )
+
+    expect(lastFrame()).toContain('Purge Selected (1/2)')
+  })
+
+  it('pressing "a" twice ends with an empty selection when the default selection is partial', async () => {
+    const mixedItems: MiasmaItem[] = [
+      {
+        id: 'high',
+        filePath: 'a.ts',
+        category: 'LOG',
+        ruleId: 'log/js-console',
+        span: { startLine: 1, endLine: 1, lines: ['console.log(1)'] },
+        explanation: 'Debug log',
+        confidence: 0.95,
+      },
+      {
+        id: 'low',
+        filePath: 'b.ts',
+        category: 'SUPPRESS',
+        ruleId: 'suppress/ts',
+        span: { startLine: 2, endLine: 2, lines: ['// @ts-expect-error'] },
+        explanation: 'check whether it is still needed',
+        confidence: 0.4,
+      },
+    ]
+
+    const { stdin, lastFrame } = render(
+      <App
+        items={mixedItems}
+        cwd="/mock/dir"
+        onPurge={mockPurge}
+        onDone={() => {}}
+      />,
+    )
+
+    expect(lastFrame()).toContain('Purge Selected (1/2)')
+
+    // First 'a': not everything is selected, so this selects all.
+    stdin.write('a')
+    await delay(30)
+    expect(lastFrame()).toContain('Purge Selected (2/2)')
+
+    // Second 'a': everything is selected, so this empties the set.
+    stdin.write('a')
+    await delay(30)
+    expect(lastFrame()).toContain('Purge Selected (0/2)')
+  })
+
   it('should render FindingList with windowing and scroll indicators on small rows', () => {
     const manyItems: MiasmaItem[] = Array.from({ length: 10 }, (_, i) => ({
       id: `item-${i}`,
       filePath: `file-${i}.ts`,
       category: 'LOG',
-      matchedContent: `log-${i}`,
+      ruleId: 'log/typescript',
+      span: { startLine: 1, endLine: 1, lines: [`log-${i}`] },
       explanation: `test-${i}`,
       confidence: 1,
     }))

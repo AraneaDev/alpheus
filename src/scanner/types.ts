@@ -4,12 +4,15 @@
 export type MiasmaCategory = 'LOG' | 'SUPPRESS' | 'SCRATCH' | 'TOMBSTONE' | 'PATH'
 
 /**
- * Surrounding code context for rendering diff previews.
+ * A contiguous range of source lines, carrying the exact text that was matched.
+ *
+ * The text is what makes a finding verifiable: the mutator will refuse to
+ * delete a range whose lines no longer match what the rule saw.
  */
-export interface ContextLine {
-  line: number
-  content: string
-  isTarget: boolean
+export interface SourceSpan {
+  startLine: number
+  endLine: number
+  lines: string[]
 }
 
 /**
@@ -18,10 +21,9 @@ export interface ContextLine {
 export interface MiasmaItem {
   id: string
   filePath: string
-  lineNumber?: number
   category: MiasmaCategory
-  matchedContent: string
-  contextLines?: ContextLine[]
+  ruleId: string
+  span?: SourceSpan
   explanation: string
   confidence: number
 }
@@ -70,6 +72,17 @@ export interface BackupManifest {
 }
 
 /**
+ * Why a finding could not be resolved against the working tree.
+ *
+ * Lives here rather than in `engine/anchor.ts`, which produces it: `scanner`
+ * is the base layer that `engine` and `safety` both import from, never the
+ * reverse, and `PurgeSummary` (defined in this file) needs the same closed
+ * set of reasons that `anchorFindings` returns. `engine/anchor.ts` re-exports
+ * this type so existing imports from there keep working.
+ */
+export type UnverifiableReason = 'not-found' | 'ambiguous' | 'missing-file'
+
+/**
  * Result summary of a purge operation.
  */
 export interface PurgeSummary {
@@ -80,4 +93,9 @@ export interface PurgeSummary {
     purgedLineCount: number
   }[]
   unlinkedFiles: string[]
+  unverifiable: {
+    filePath: string
+    startLine?: number
+    reason: UnverifiableReason
+  }[]
 }

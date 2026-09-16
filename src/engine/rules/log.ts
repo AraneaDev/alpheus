@@ -1,4 +1,5 @@
 import type { SupportedLanguage } from '../language.ts'
+import type { MatchContext, Rule, RuleMatch } from './types.ts'
 
 /**
  * Checks whether an added line contains an ephemeral debug log statement.
@@ -67,7 +68,13 @@ export function matchLogMiasma(line: string, lang: SupportedLanguage): string | 
     }
 
     case 'php': {
-      if (isFunctionCall(/(?:var_dump|print_r|dump|dd)\s*\(/)) {
+      // Excludes `>` from the preceding character class so `->add(` and
+      // `->dump(` are not misread by the bare `dd`/`dump` substring; the
+      // arrow form is matched explicitly below instead.
+      if (isFunctionCall(/(?:^|[^a-zA-Z0-9_$>])(?:var_dump|print_r|dump|dd)\s*\(/)) {
+        return 'Ephemeral PHP dump function call'
+      }
+      if (isFunctionCall(/->\s*(?:dump|dd)\s*\(/)) {
         return 'Ephemeral PHP dump function call'
       }
       return null
@@ -87,3 +94,101 @@ export function matchLogMiasma(line: string, lang: SupportedLanguage): string | 
       return null
   }
 }
+
+/**
+ * Builds a rule `match` function that runs `matchLogMiasma` over every line of
+ * a context, keeping only the explanations named in `only` when it is given.
+ *
+ * Several distinct log patterns share one language and one underlying
+ * function (Python has print, breakpoint and logging.debug behind a single
+ * switch case, for example), so a rule narrows to its own slice of that
+ * function's output by the exact explanation text it returns.
+ *
+ * @param confidence - The confidence to report for a match.
+ * @param only - The explanation strings this rule owns, or omit to accept any.
+ * @returns A `Rule['match']` implementation.
+ */
+function logLineMatcher(
+  confidence: number,
+  only?: string[],
+): (ctx: MatchContext) => RuleMatch[] {
+  return (ctx) => {
+    const out: RuleMatch[] = []
+
+    for (const line of ctx.lines) {
+      const explanation = matchLogMiasma(line.content, ctx.lang)
+      if (explanation && (!only || only.includes(explanation))) {
+        out.push({
+          startLine: line.lineNumber,
+          endLine: line.lineNumber,
+          explanation,
+          confidence,
+        })
+      }
+    }
+
+    return out
+  }
+}
+
+/**
+ * Ephemeral debug output left behind after a fix.
+ *
+ * One entry per language (and, where one language's switch case covers more
+ * than one distinct pattern that later tasks must address independently,
+ * more than one entry per language).
+ */
+export const logRules: Rule[] = [
+  {
+    id: 'log/js-console',
+    category: 'LOG',
+    languages: ['typescript', 'javascript'],
+    match: logLineMatcher(0.95),
+  },
+  {
+    id: 'log/python-print',
+    category: 'LOG',
+    languages: ['python'],
+    match: logLineMatcher(0.9, ['Ephemeral Python print statement']),
+  },
+  {
+    id: 'log/python-breakpoint',
+    category: 'LOG',
+    languages: ['python'],
+    match: logLineMatcher(0.95, ['Active Python debugger breakpoint']),
+  },
+  {
+    // logging.debug() is the idiomatic, gated way to emit debug output in
+    // Python: unlike a bare print(), it is routinely committed on purpose and
+    // stays silent unless the log level is turned up, so it is less likely
+    // to be forgotten debris than actual debris.
+    id: 'log/python-logging',
+    category: 'LOG',
+    languages: ['python'],
+    match: logLineMatcher(0.5, ['Temporary Python logging.debug call']),
+  },
+  {
+    id: 'log/rust-macro',
+    category: 'LOG',
+    languages: ['rust'],
+    match: logLineMatcher(0.7),
+  },
+  {
+    id: 'log/go-print',
+    category: 'LOG',
+    languages: ['go'],
+    match: logLineMatcher(0.9),
+  },
+  {
+    id: 'log/php-dump',
+    category: 'LOG',
+    languages: ['php'],
+    match: logLineMatcher(0.9),
+  },
+  {
+    id: 'log/shell-trace',
+    category: 'LOG',
+    languages: ['shell'],
+    match: logLineMatcher(0.9),
+  },
+]

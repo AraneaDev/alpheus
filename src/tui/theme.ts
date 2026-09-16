@@ -23,4 +23,6 @@ export const theme = {
   pointer: '>',
   checkbox: (selected: boolean): string => (selected ? '[x]' : '[ ]'),
   borderStyle: 'round' as const,
+  /** Colour for a finding scored below the confidence threshold, so it reads as unticked-on-purpose. */
+  belowThresholdColor: 'gray',
 }

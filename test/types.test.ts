@@ -1,33 +1,32 @@
 import { describe, expect, it } from 'bun:test'
 import type {
   BackupManifest,
-  ContextLine,
   DiffHunk,
   MiasmaCategory,
   MiasmaItem,
   PurgeSummary,
+  SourceSpan,
 } from '../src/scanner/types.ts'
 
 describe('Core Domain Types', () => {
-  it('should instantiate a valid MiasmaItem and ContextLine', () => {
-    const ctx: ContextLine = { line: 41, content: 'const a = 1', isTarget: false }
+  it('should instantiate a valid MiasmaItem and SourceSpan', () => {
+    const span: SourceSpan = {
+      startLine: 41,
+      endLine: 43,
+      lines: ['const a = 1', 'console.log("debug")', 'return a'],
+    }
     const item: MiasmaItem = {
       id: 'item-1',
       filePath: 'src/index.ts',
-      lineNumber: 42,
       category: 'LOG',
-      matchedContent: 'console.log("debug")',
+      ruleId: 'log/typescript',
+      span,
       explanation: 'Ephemeral debug print',
       confidence: 1.0,
-      contextLines: [
-        ctx,
-        { line: 42, content: 'console.log("debug")', isTarget: true },
-        { line: 43, content: 'return a', isTarget: false },
-      ],
     }
 
     expect(item.category).toBe('LOG')
-    expect(item.lineNumber).toBe(42)
+    expect(item.span?.startLine).toBe(41)
   })
 
   it('should instantiate all MiasmaCategories', () => {
@@ -67,6 +66,7 @@ describe('Core Domain Types', () => {
       backupPath: '.alpheus/backups/20260914_001',
       modifiedFiles: [{ path: 'src/main.ts', purgedLineCount: 1 }],
       unlinkedFiles: [],
+      unverifiable: [],
     }
     expect(summary.modifiedFiles[0].purgedLineCount).toBe(1)
   })
