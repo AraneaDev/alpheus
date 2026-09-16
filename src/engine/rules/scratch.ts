@@ -43,10 +43,9 @@ export function matchScratchFile(relPath: string): string | null {
  *
  * `matchScratchFile` judges a whole file path rather than a line, so this
  * rule reports its single match (if any) as spanning the context's one
- * nominal line: `evaluateUntracked` calls `matchScratchFile` directly and
- * does not go through the registry, so this wrapper exists for
- * addressability (naming, scoring, disabling) rather than for its own
- * matcher loop.
+ * nominal line. `evaluateUntracked` looks this entry up in the registry by
+ * category and calls it directly, so the confidence split below is the one
+ * and only place scratch findings are scored.
  */
 export const scratchRules: Rule[] = [
   {

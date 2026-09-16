@@ -376,7 +376,9 @@ describe('CLI Commands Dispatching', () => {
     // A scratch file with no modified-file findings alongside it: the old
     // wording divided by summary.modifiedFiles.length unconditionally, which
     // printed "across 0 files" when everything purged was an unlinked file.
-    writeFileSync(join(tmpDir, 'temp.scratch.json'), '{"scratch": true}\n')
+    // The explicit `.bak` extension scores 0.9, above the default threshold,
+    // unlike a merely generic name such as temp.scratch.json (0.7).
+    writeFileSync(join(tmpDir, 'debug.bak'), '{"scratch": true}\n')
 
     const lines: string[] = []
     const spy = spyOn(console, 'log').mockImplementation((msg: string) => {

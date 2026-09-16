@@ -2,9 +2,11 @@ import type { DiffHunk, MiasmaItem } from '../scanner/types.ts'
 import { scanGitDiff, scanUntrackedFiles } from '../scanner/git.ts'
 import { detectLanguage } from './language.ts'
 import { makeFindingId } from './identity.ts'
-import { matchScratchFile } from './rules/scratch.ts'
 import { RULES } from './rules/registry.ts'
 import type { MatchContext, Rule, RuleMatch } from './rules/types.ts'
+
+/** The single registry entry that judges untracked file paths. */
+const SCRATCH_RULE = RULES.find((rule) => rule.category === 'SCRATCH')
 
 /**
  * Turns a rule's match into a finding, pulling the span's exact text out of the hunk.
@@ -89,22 +91,29 @@ export function evaluateHunks(hunks: DiffHunk[]): MiasmaItem[] {
 /**
  * Evaluates untracked files against throwaway/scratch heuristics.
  *
+ * Goes through the SCRATCH registry entry rather than duplicating its
+ * heuristic, so the rule's own confidence split (an explicit `.tmp`/`.bak`
+ * extension scores higher than a merely generic name) is what actually runs,
+ * instead of a second, hardcoded score living here.
+ *
  * @param untrackedFiles - Relative paths of untracked files.
  * @returns Array of scratch file miasma findings.
  */
 export function evaluateUntracked(untrackedFiles: string[]): MiasmaItem[] {
   const items: MiasmaItem[] = []
+  if (!SCRATCH_RULE) return items
 
   for (const file of untrackedFiles) {
-    const scratchMatch = matchScratchFile(file)
-    if (scratchMatch) {
+    const ctx: MatchContext = { filePath: file, lang: detectLanguage(file), lines: [] }
+
+    for (const match of SCRATCH_RULE.match(ctx)) {
       items.push({
         id: makeFindingId('SCRATCH', file, 0, [file]),
         filePath: file,
         category: 'SCRATCH',
-        ruleId: 'scratch/untracked',
-        explanation: scratchMatch,
-        confidence: 0.95,
+        ruleId: SCRATCH_RULE.id,
+        explanation: match.explanation,
+        confidence: match.confidence,
       })
     }
   }

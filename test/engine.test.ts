@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { DiffHunk } from '../src/scanner/types.ts'
 import { evaluateHunks, evaluateUntracked } from '../src/engine/matcher.ts'
+import { DEFAULT_MIN_CONFIDENCE, partitionByConfidence } from '../src/engine/threshold.ts'
 
 describe('Miasma Engine Orchestrator', () => {
   it('should evaluate diff hunks and produce categorized MiasmaItems', () => {
@@ -38,6 +39,26 @@ describe('Miasma Engine Orchestrator', () => {
     expect(items.every((i) => i.category === 'SCRATCH')).toBe(true)
     expect(items.map((i) => i.filePath)).toContain('scratch.py')
     expect(items.map((i) => i.filePath)).toContain('temp.json')
+  })
+
+  it('scores a generically named scratch file below the actionable threshold', () => {
+    const items = evaluateUntracked(['temp.py'])
+    expect(items.length).toBe(1)
+    expect(items[0].confidence).toBe(0.7)
+
+    const { actionable, review } = partitionByConfidence(items, DEFAULT_MIN_CONFIDENCE)
+    expect(actionable.length).toBe(0)
+    expect(review.length).toBe(1)
+  })
+
+  it('scores an explicit .bak extension above the actionable threshold', () => {
+    const items = evaluateUntracked(['debug.bak'])
+    expect(items.length).toBe(1)
+    expect(items[0].confidence).toBe(0.9)
+
+    const { actionable, review } = partitionByConfidence(items, DEFAULT_MIN_CONFIDENCE)
+    expect(actionable.length).toBe(1)
+    expect(review.length).toBe(0)
   })
 
   it('should detect tombstone blocks in hunks', () => {
