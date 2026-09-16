@@ -1,6 +1,6 @@
 {
   "name": "alpheus",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "Sweeps the agent's debris—debug prints, silenced linters, scratch files—before you commit",
   "license": "MIT",
   "type": "module",
