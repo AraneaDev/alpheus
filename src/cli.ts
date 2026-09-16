@@ -118,6 +118,13 @@ export async function main(
       }
 
       const { actionable, review } = partitionByConfidence(items, minConfidence)
+      // Agrees with `check` on the same tree: an actionable finding that
+      // purgeMiasma could not anchor and purge is still sitting in the
+      // working tree at or above the threshold, exactly what `check` fails
+      // on. Without this, a clean where every actionable finding turned out
+      // unverifiable reported success (exit 0) while `check` on that same,
+      // untouched tree reported findings (exit 1).
+      let exitCode = 0
 
       if (actionable.length === 0) {
         if (isJson) {
@@ -129,9 +136,11 @@ export async function main(
         const summary = await purgeMiasma(cwd, actionable, { dryRun: isDryRun })
         const purgedLines = summary.modifiedFiles.reduce((n, f) => n + f.purgedLineCount, 0)
 
+        if (summary.unverifiable.length > 0) exitCode = 1
+
         if (isJson) {
           console.log(JSON.stringify({ ...summary, review }, null, 2))
-          return 0
+          return exitCode
         }
 
         const linesWord = purgedLines === 1 ? 'line' : 'lines'
@@ -180,7 +189,7 @@ export async function main(
         console.log('Run `alpheus` to review them interactively, or lower --min-confidence.')
       }
 
-      return 0
+      return exitCode
     } catch (err: unknown) {
       console.error('Alpheus clean error:', err instanceof Error ? err.message : String(err))
       return 2

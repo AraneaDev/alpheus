@@ -183,7 +183,10 @@ describe('CLI Commands Dispatching', () => {
     spy.mockRestore()
     const output = lines.join('\n')
 
-    expect(code).toBe(0)
+    // Agrees with `check` on this same, untouched tree: an actionable
+    // finding still sits there, unverified and unpurged, so this is not a
+    // clean exit.
+    expect(code).toBe(1)
     expect(output).not.toContain('Backup saved')
     expect(output).not.toContain('restore')
     expect(output).toContain('Nothing was purged; no changes were made.')
@@ -207,7 +210,9 @@ describe('CLI Commands Dispatching', () => {
     spy.mockRestore()
     const parsed = JSON.parse(lines.join('\n')) as { backupId: string; backupPath: string }
 
-    expect(code).toBe(0)
+    // Agrees with `check` on this same, untouched tree; see the exit-code
+    // test above for why unverifiable findings still fail `clean`.
+    expect(code).toBe(1)
     expect(parsed.backupId).not.toBe('dry-run')
     expect(parsed.backupId).toBe('')
     expect(parsed.backupPath).toBe('')
@@ -412,6 +417,20 @@ describe('CLI Commands Dispatching', () => {
     } finally {
       Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true })
     }
+  })
+
+  it('agrees with `check` on exit code when every actionable finding is unverifiable', async () => {
+    // Two identical console.log lines: ambiguous, so neither anchors and
+    // `clean` purges nothing. The tree `check` sees is the exact tree
+    // `clean` leaves behind, so the two must fail together.
+    writeFileSync(join(tmpDir, 'app.ts'), 'console.log(a)\nconst b = 2\nconsole.log(a)\n')
+    await gitAddAll(tmpDir)
+
+    const checkCode = await main(['check'], tmpDir)
+    const cleanCode = await main(['clean'], tmpDir)
+
+    expect(checkCode).toBe(cleanCode)
+    expect(checkCode).toBe(1)
   })
 
   it('restores the named snapshot when --force appears before the id', async () => {
