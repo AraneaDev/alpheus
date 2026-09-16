@@ -3,7 +3,7 @@ import * as fsModule from 'fs'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import type { BackupManifest, MiasmaItem } from '../src/scanner/types.ts'
-import { createSafetyBackup, listBackups } from '../src/safety/backup.ts'
+import { createSafetyBackup, finalizeSafetyBackup, listBackups } from '../src/safety/backup.ts'
 import { purgeMiasma } from '../src/safety/mutator.ts'
 import { restoreBackup } from '../src/safety/restore.ts'
 
@@ -95,6 +95,10 @@ describe('Safety Backup & Restore Protocol', () => {
     writeFileSync(join(TEST_DIR, 'src/main.ts'), 'const x = 1;\n')
     rmSync(join(TEST_DIR, 'scratch.py'))
     expect(existsSync(join(TEST_DIR, 'scratch.py'))).toBe(false)
+
+    // As the real purge does: record sha256After once mutation is done, so
+    // the restore below has something to compare the untouched file against.
+    finalizeSafetyBackup(TEST_DIR, manifest)
 
     // Run restore
     const restored = await restoreBackup(TEST_DIR, manifest.id)

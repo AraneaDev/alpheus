@@ -27,10 +27,17 @@ interface PlannedRestore {
  * An `unlink` entry never carries `sha256After`, because the purge deleted
  * the file and there was nothing left to hash. That absence is itself the
  * baseline: anything found at `destFilePath` now was created after the
- * purge, so its mere presence is the conflict, not a hash mismatch. A
- * `modify` entry is compared against the hash recorded right after the
- * purge; a missing hash or a missing file is not treated as a conflict,
- * since there is nothing on disk to compare against.
+ * purge, so its mere presence is the conflict, not a hash mismatch.
+ *
+ * A `modify` entry is compared against the hash recorded right after the
+ * purge. A missing file is not a conflict, since there is nothing on disk to
+ * overwrite. A missing hash on a file that does exist is a conflict, the
+ * same conservative call already made for `unlink` entries above: it means
+ * `finalizeSafetyBackup` never got to write it, typically because a later
+ * file's write threw and aborted the mutation loop partway through. Treating
+ * that as "no conflict" would let a later restore silently overwrite
+ * whatever purgeMiasma already wrote to disk, with no way to tell it apart
+ * from work done since.
  *
  * @param file - The manifest entry describing the original file and its
  *   recorded post-purge hash.
@@ -42,7 +49,8 @@ function hasConflict(file: BackupManifestFile, destFilePath: string): boolean {
     return existsSync(destFilePath)
   }
 
-  if (!file.sha256After || !existsSync(destFilePath)) return false
+  if (!existsSync(destFilePath)) return false
+  if (!file.sha256After) return true
 
   const current = createHash('sha256').update(readFileSync(destFilePath)).digest('hex')
   return current !== file.sha256After

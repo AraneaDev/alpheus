@@ -230,6 +230,38 @@ describe('restore verification', () => {
     expect(readFileSync(join(TEST_DIR, 'debug.tmp'), 'utf-8')).toBe('throwaway\n')
   })
 
+  it('refuses to restore a modify entry with no sha256After, and still restores with --force', async () => {
+    // A missing sha256After means finalizeSafetyBackup never got to write it,
+    // typically because a later file in the same purge threw and aborted the
+    // mutation loop partway through. The file on disk right now could be the
+    // purge's own (unrecorded) output, or further work done on top of it:
+    // there is no hash to tell them apart, so it must be treated as a
+    // conflict rather than silently overwritten.
+    const id = 'aborted_snapshot'
+    const backupDir = join(TEST_DIR, '.alpheus/backups', id)
+    mkdirSync(backupDir, { recursive: true })
+    writeFileSync(join(backupDir, 'app.ts'), 'const a = 1\nconsole.log(a)\n')
+    writeFileSync(
+      join(backupDir, 'manifest.json'),
+      JSON.stringify({
+        version: '1.0',
+        id,
+        timestamp: new Date().toISOString(),
+        workingDirectory: TEST_DIR,
+        files: [{ originalPath: 'app.ts', backupRelPath: 'app.ts', action: 'modify', sha256Before: 'irrelevant' }],
+      }),
+    )
+
+    writeFileSync(join(TEST_DIR, 'app.ts'), 'const a = 1\n')
+
+    await expect(restoreBackup(TEST_DIR, id)).rejects.toThrow(/app\.ts/)
+    expect(readFileSync(join(TEST_DIR, 'app.ts'), 'utf-8')).toBe('const a = 1\n')
+
+    const restored = await restoreBackup(TEST_DIR, id, { force: true })
+    expect(restored).toContain('app.ts')
+    expect(readFileSync(join(TEST_DIR, 'app.ts'), 'utf-8')).toBe('const a = 1\nconsole.log(a)\n')
+  })
+
   it('leaves non-conflicting files untouched when another file in the same restore conflicts', async () => {
     writeFileSync(join(TEST_DIR, 'safe.ts'), 'const a = 1\nconsole.log(a)\n')
     writeFileSync(join(TEST_DIR, 'conflict.ts'), 'const b = 1\nconsole.log(b)\n')
