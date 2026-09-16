@@ -26,8 +26,12 @@
 > Augean stables, washing thirty years of accumulated dung out to sea in a single afternoon. Those
 > stables were not filthy because anyone wanted them that way. Nobody had got round to it.
 
-A Claude Code plugin and a CLI. It reads what the working tree has changed, names the parts that
-were never meant to ship, and removes the ones you pick, with a backup you can undo.
+**TL;DR:** Alpheus finds agent debris in the working tree before it reaches a commit. It scans
+staged and unstaged additions plus untracked files with deterministic language-aware rules, then
+lets you review or remove selected findings with a restorable backup.
+
+It is a Claude Code plugin and a CLI. It names the parts that were never meant to ship and leaves
+the choice to you.
 
 A debug print added to trace a fault. A `// @ts-ignore` that made a type error go away. Four lines
 of dead code left commented out in case they come back. A path into your own home directory. A
@@ -35,7 +39,7 @@ of dead code left commented out in case they come back. A path into your own hom
 them you meant.
 
 > **Status:** pre-release. The plugin installs from the Aranea marketplace and the CLI from this
-> repository, see [Install](#install). It needs [Bun](https://bun.sh/) 1.1 or newer and git.
+> repository. See [Install](#install). It needs [Bun](https://bun.sh/) 1.1 or newer and git.
 
 ---
 
