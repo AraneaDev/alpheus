@@ -82,6 +82,25 @@ describe('Miasma Engine Orchestrator', () => {
     expect(tombstone?.span?.startLine).toBe(1)
   })
 
+  it('never classifies a tracked, edited file as SCRATCH from its filename alone', () => {
+    // temp.json is a committed, tracked file that has been edited (that's why
+    // it shows up as a hunk at all). Its name matches the scratch heuristic,
+    // but SCRATCH is a whole-file finding that the mutator unlinks entirely,
+    // so a tracked file must never be classified into it: only untracked
+    // files, via evaluateUntracked, may produce a SCRATCH finding.
+    const hunks: DiffHunk[] = [
+      {
+        filePath: 'temp.json',
+        startLine: 1,
+        lineCount: 1,
+        lines: [{ lineNumber: 1, content: '{"key": "value"}', type: 'add' }],
+      },
+    ]
+
+    const items = evaluateHunks(hunks)
+    expect(items.some((i) => i.category === 'SCRATCH')).toBe(false)
+  })
+
   it('should detect PATH miasma in hunks', () => {
     const hunks: DiffHunk[] = [
       {
