@@ -126,7 +126,7 @@ export const App: React.FC<AppProps> = ({
       {/* Header */}
       <Box borderStyle="round" borderColor="cyan" paddingX={1} width="100%">
         <Text bold color="cyan" wrap="truncate-end">
-          Alpheus — Diverting the river through your working tree. Select items to purge.
+          Alpheus, diverting the river through your working tree. Select items to purge.
         </Text>
       </Box>
 

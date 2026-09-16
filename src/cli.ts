@@ -26,7 +26,7 @@ const UNVERIFIABLE_REASON_TEXT: Record<UnverifiableReason, string> = {
 
 function printHelp(): void {
   console.log(`
-Alpheus — Sweeps the agent's debris before you commit.
+Alpheus, sweeps the agent's debris before you commit.
 
 Usage:
   alpheus                      Launch interactive TUI to review & purge miasma
@@ -234,7 +234,7 @@ export async function main(
 
       console.log(`Alpheus Backups (${manifests.length} total):`)
       for (const m of manifests) {
-        console.log(`  [${m.id}] ${m.timestamp} — ${m.files.length} files`)
+        console.log(`  [${m.id}] ${m.timestamp}, ${m.files.length} files`)
       }
       return 0
     } catch (err: unknown) {

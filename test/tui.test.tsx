@@ -48,7 +48,7 @@ describe('Interactive Ink TUI App', () => {
     )
 
     const frame = lastFrame() || ''
-    expect(frame).toContain('Alpheus — Diverting the river through your working tree')
+    expect(frame).toContain('Alpheus, diverting the river through your working tree')
     expect(frame).toContain('[LOG]')
     expect(frame).toContain('[SCRATCH]')
     expect(frame).toContain('src/test.ts:10')

@@ -30,7 +30,7 @@ describe('CLI Reporters', () => {
     expect(table).toContain('[SCRATCH]')
     expect(table).toContain('src/auth.ts:42')
     expect(table).toContain('scratch.py')
-    expect(table).toContain('2 agent miasma items found')
+    expect(table).toContain('Alpheus found 2 agent miasma items')
   })
 
   it('should return clean message when no items present', () => {
