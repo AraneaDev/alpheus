@@ -390,6 +390,34 @@ describe('purgeMiasma safety', () => {
     expect(after).toContain('const a = 1')
   })
 
+  it('records the resolved line in the manifest, not the pre-anchor one', async () => {
+    writeFileSync(
+      join(TEST_DIR, 'app.ts'),
+      'const x = 10\nconst y = 11\nconst z = 12\nconst a = 1\nconsole.log(a)\n',
+    )
+
+    const summary = await purgeMiasma(TEST_DIR, [
+      {
+        id: 'log-1',
+        filePath: 'app.ts',
+        category: 'LOG',
+        ruleId: 'log/typescript',
+        // The staged diff said line 2. The worktree has it at line 5.
+        span: { startLine: 2, endLine: 2, lines: ['console.log(a)'] },
+        explanation: 'Debug log',
+        confidence: 1,
+      },
+    ])
+
+    const manifestPath = join(TEST_DIR, '.alpheus/backups', summary.backupId, 'manifest.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as {
+      files: { originalPath: string; purgedLines?: number[] }[]
+    }
+
+    const file = manifest.files.find((f) => f.originalPath === 'app.ts')
+    expect(file?.purgedLines).toEqual([5])
+  })
+
   it('preserves CRLF endings', async () => {
     writeFileSync(join(TEST_DIR, 'win.ts'), 'const a = 1\r\nconsole.log(a)\r\nconst b = 2\r\n')
 

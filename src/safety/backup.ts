@@ -148,19 +148,40 @@ async function pruneBackups(cwd: string): Promise<void> {
 }
 
 /**
- * Rewrites a manifest after mutation, recording each file's resulting hash.
+ * Rewrites a manifest after mutation, recording each file's resulting hash
+ * and the line numbers actually removed.
  *
  * `sha256After` is what lets a restore tell an untouched file from one the
  * author has since worked on. Without it a restore is an unconditional
  * overwrite of whatever is on disk.
  *
+ * `purgedLines` is written a second time here, replacing the value
+ * `createSafetyBackup` recorded from each finding's original
+ * `span.startLine`. That first value is a pre-anchor line number, which may
+ * not be where the line actually was: anchoring can resolve a stale diff
+ * coordinate to a different line before the mutator ever splices it out. The
+ * manifest is meant to record what was actually purged, so once mutation has
+ * run, `resolvedPurgedLines` (the anchored, post-splice line numbers, keyed
+ * by file) is what goes in it.
+ *
  * @param cwd - Repository root directory.
  * @param manifest - The manifest created before mutation.
+ * @param resolvedPurgedLines - The resolved line numbers actually removed
+ *   from each modified file, keyed by `originalPath`. A file absent from
+ *   this map (an unlink, or one with nothing to report) keeps whatever
+ *   `createSafetyBackup` already wrote.
  */
-export function finalizeSafetyBackup(cwd: string, manifest: BackupManifest): void {
+export function finalizeSafetyBackup(
+  cwd: string,
+  manifest: BackupManifest,
+  resolvedPurgedLines?: Map<string, number[]>,
+): void {
   for (const file of manifest.files) {
     const absPath = join(cwd, file.originalPath)
     file.sha256After = existsSync(absPath) ? computeSha256(readFileSync(absPath)) : undefined
+
+    const resolved = resolvedPurgedLines?.get(file.originalPath)
+    if (resolved) file.purgedLines = resolved
   }
 
   const manifestPath = join(cwd, '.alpheus/backups', manifest.id, 'manifest.json')

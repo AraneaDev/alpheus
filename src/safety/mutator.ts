@@ -102,6 +102,7 @@ export async function purgeMiasma(
 
   const modifiedFiles: { path: string; purgedLineCount: number }[] = []
   const unlinkedFiles: string[] = []
+  const resolvedPurgedLines = new Map<string, number[]>()
 
   const fileMap = new Map<string, AnchoredItem[]>()
   for (const entry of anchored) {
@@ -137,10 +138,11 @@ export async function purgeMiasma(
     }
 
     modifiedFiles.push({ path: relPath, purgedLineCount: removedLineNumbers.size })
+    resolvedPurgedLines.set(relPath, [...removedLineNumbers].sort((a, b) => a - b))
   }
 
   if (!options?.dryRun && manifest) {
-    finalizeSafetyBackup(cwd, manifest)
+    finalizeSafetyBackup(cwd, manifest, resolvedPurgedLines)
   }
 
   return { backupId, backupPath, modifiedFiles, unlinkedFiles, unverifiable: unverifiableReport }
