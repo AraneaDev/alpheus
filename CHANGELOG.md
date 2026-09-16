@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0](https://github.com/AraneaDev/alpheus/compare/v0.1.5...v0.2.0) (2026-09-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* verify every finding against the working tree before removing it ([#12](https://github.com/AraneaDev/alpheus/issues/12))
+
+### Features
+
+* verify every finding against the working tree before removing it ([#12](https://github.com/AraneaDev/alpheus/issues/12)) ([9a38dd8](https://github.com/AraneaDev/alpheus/commit/9a38dd823aac4614cc4f6bc8e6166cb255b5422a))
+
+
+### Continuous integration
+
+* **pr-title:** check out the base branch, not the pull request's pinned base commit ([#15](https://github.com/AraneaDev/alpheus/issues/15)) ([b091729](https://github.com/AraneaDev/alpheus/commit/b091729aedfaccb1d99a09de8871e59bc81ebc3d))
+
 ## [0.1.5](https://github.com/AraneaDev/alpheus/compare/v0.1.4...v0.1.5) (2026-09-16)
 
 
