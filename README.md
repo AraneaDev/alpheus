@@ -6,7 +6,7 @@
 **It sweeps the agent's debris out of the working tree before you commit.**
 
 [![Release](https://img.shields.io/github/v/release/AraneaDev/alpheus?label=release&include_prereleases)](https://github.com/AraneaDev/alpheus/releases)
-[![Tool page](https://img.shields.io/badge/tool%20page-aranea.dev-0b7285)](https://aranea.dev/en/tools/alpheus)
+[![Tool page](https://img.shields.io/badge/tool%20page-aranea.dev-0b7285)](https://aranea.dev/tools/alpheus)
 [![Tests](https://img.shields.io/badge/tests-102%20passing-2b8a3e)](test/)
 [![License](https://img.shields.io/github/license/AraneaDev/alpheus?label=license&color=yellow)](./LICENSE)
 [![Language](https://img.shields.io/github/languages/top/AraneaDev/alpheus)](https://github.com/AraneaDev/alpheus)
